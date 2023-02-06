@@ -10,11 +10,11 @@
 //! Provides a simple library to parse the macOS Unified Log format.
 
 use crate::catalog::CatalogChunk;
-use crate::chunks::firehose::activity::FirehoseActivity;
+// use crate::chunks::firehose::activity::FirehoseActivity;
 use crate::chunks::firehose::firehose_log::{Firehose, FirehoseItemInfo, FirehosePreamble};
 use crate::chunks::firehose::nonactivity::FirehoseNonActivity;
-use crate::chunks::firehose::signpost::FirehoseSignpost;
-use crate::chunks::firehose::trace::FirehoseTrace;
+// use crate::chunks::firehose::signpost::FirehoseSignpost;
+// use crate::chunks::firehose::trace::FirehoseTrace;
 use crate::chunks::oversize::Oversize;
 use crate::chunks::simpledump::SimpleDump;
 use crate::chunks::statedump::Statedump;
@@ -293,6 +293,27 @@ impl LogData {
                         message_entries: firehose.message.item_info.to_owned(),
                     };
 
+                    if firehose.firehose_non_activity.subsystem_value != 0 {
+                        let results = CatalogChunk::get_subsystem(
+                            &firehose.firehose_non_activity.subsystem_value,
+                            &preamble.first_number_proc_id,
+                            &preamble.second_number_proc_id,
+                            &catalog_data.catalog,
+                        );
+                        match results {
+                            Ok((_, subsystem)) => {
+                                log_data.subsystem = subsystem.subsystem;
+                                log_data.category = subsystem.category;
+                            }
+                            Err(err) => warn!(
+                                "[macos-unifiedlogs] Failed to get subsystem: {:?}",
+                                err
+                            ),
+                        }
+                    }
+
+
+
                     // 0x4 - Non-activity log entry. Ex: log default, log error, etc
                     // 0x2 - Activity log entry. Ex: activity create
                     // 0x7 - Loss log entry. Ex: loss
@@ -300,7 +321,9 @@ impl LogData {
                     // 0x3 - Trace log entry. Ex: trace default
                     match firehose.unknown_log_activity_type {
                         0x4 => {
-                            log_data.activity_id =
+                            if log_data.subsystem == "powerd" {
+
+                                log_data.activity_id =
                                 u64::from(firehose.firehose_non_activity.unknown_activity_id);
                             let message_data =
                                 FirehoseNonActivity::get_firehose_nonactivity_strings(
@@ -345,7 +368,7 @@ impl LogData {
                                                 &firehose.message.item_info,
                                                 &message_re,
                                             )
-                                        };
+                                    };
                                     // If we are tracking missing data (due to it being stored in another log file). Add missing data to vec to track and parse again once we got all data
                                     if exclude_mssing
                                         && log_message.contains("<Missing message data>")
@@ -375,27 +398,12 @@ impl LogData {
                                     warn!("[macos-unifiedlogs] Failed to get message string data for firehose non-activity log entry: {:?}", err);
                                 }
                             }
-
-                            if firehose.firehose_non_activity.subsystem_value != 0 {
-                                let results = CatalogChunk::get_subsystem(
-                                    &firehose.firehose_non_activity.subsystem_value,
-                                    &preamble.first_number_proc_id,
-                                    &preamble.second_number_proc_id,
-                                    &catalog_data.catalog,
-                                );
-                                match results {
-                                    Ok((_, subsystem)) => {
-                                        log_data.subsystem = subsystem.subsystem;
-                                        log_data.category = subsystem.category;
-                                    }
-                                    Err(err) => warn!(
-                                        "[macos-unifiedlogs] Failed to get subsystem: {:?}",
-                                        err
-                                    ),
-                                }
-                            }
+ 
                         }
-                        0x7 => {
+
+                        }
+                       
+                        /* 0x7 => {
                             // No message data in loss entries
                             log_data.log_type = String::new();
                         }
@@ -599,17 +607,19 @@ impl LogData {
                                     warn!("[macos-unifiedlogs] Failed to get message string data for firehose activity log entry: {:?}", err);
                                 }
                             }
-                        }
-                        _ => error!(
-                            "[macos-unifiedlogs] Parsed unknown log firehose data: {:?}",
-                            firehose
-                        ),
+                        }*/
+                        _ =>{ 
+                            // error!(
+                            //    "[macos-unifiedlogs] Parsed unknown log firehose data: {:?}",
+                            //    firehose
+                            //)
+                    },
                     }
                     log_data_vec.push(log_data);
                 }
             }
 
-            for simpledump in &catalog_data.simpledump {
+             /* for simpledump in &catalog_data.simpledump {
                 let no_firehose_preamble = 1;
                 let log_data = LogData {
                     subsystem: simpledump.subsystem.to_owned(),
@@ -643,8 +653,8 @@ impl LogData {
                 };
                 log_data_vec.push(log_data);
             }
-
-            for statedump in &catalog_data.statedump {
+ */
+            /* for statedump in &catalog_data.statedump {
                 let no_firehose_preamble = 1;
 
                 let data_string = match statedump.unknown_data_type {
@@ -711,7 +721,8 @@ impl LogData {
                 };
                 log_data_vec.push(log_data);
             }
-        }
+ */
+         }
 
         (log_data_vec, missing_unified_log_data_vec)
     }

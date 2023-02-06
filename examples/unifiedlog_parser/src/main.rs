@@ -5,8 +5,8 @@
 // is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and limitations under the License.
 
-use chrono::{SecondsFormat, TimeZone, Utc};
-use log::LevelFilter;
+// use chrono::{SecondsFormat, TimeZone, Utc};
+// use log::LevelFilter;
 use macos_unifiedlogs::dsc::SharedCacheStrings;
 use macos_unifiedlogs::parser::{
     build_log, collect_shared_strings, collect_shared_strings_system, collect_strings,
@@ -15,14 +15,23 @@ use macos_unifiedlogs::parser::{
 use macos_unifiedlogs::timesync::TimesyncBoot;
 use macos_unifiedlogs::unified_log::{LogData, UnifiedLogData};
 use macos_unifiedlogs::uuidtext::UUIDText;
-use simplelog::{Config, SimpleLogger};
-use std::error::Error;
+// use simplelog::{Config, SimpleLogger};
+// use std::error::Error;
 use std::fs;
-use std::fs::OpenOptions;
+// use std::fs::OpenOptions;
 use std::path::PathBuf;
-
+use regex::Regex;
 use clap::Parser;
+/* use serde::Serialize;
 
+
+#[derive(Debug, Serialize)]
+pub struct MessageData {
+    pub subsystem: String,
+    pub pid: u64,
+    pub message: String,
+}
+ */
 #[derive(Parser, Debug)]
 #[clap(version, about, long_about = None)]
 struct Args {
@@ -33,23 +42,23 @@ struct Args {
     /// Path to logarchive formatted directory
     #[clap(short, long, default_value = "")]
     input: String,
-
-    /// Path to output file. Any directories must already exist
-    #[clap(short, long)]
-    output: String,
+//
+//    /// Path to output file. Any directories must already exist
+//    #[clap(short, long)]
+//    output: String,
 }
 
 fn main() {
-    println!("Starting Unified Log parser...");
+    // println!("Starting Unified Log parser...");
     // Set logging level to warning
-    SimpleLogger::init(LevelFilter::Warn, Config::default())
-        .expect("Failed to initialize simple logger");
+    // SimpleLogger::init(LevelFilter::Warn, Config::default())
+    //    .expect("Failed to initialize simple logger");
 
     let args = Args::parse();
     // Create headers for CSV file
-    output_header().unwrap();
+    // output_header().unwrap();
 
-    if args.input != "" && args.output != "" {
+    if args.input != "" {
         parse_log_archive(&args.input);
     } else if args.live != "false" {
         parse_live_system();
@@ -83,7 +92,7 @@ fn parse_log_archive(path: &str) {
         path,
     );
 
-    println!("\nFinished parsing Unified Log data. Saved results to: output.csv");
+    // println!("\nFinished parsing Unified Log data. Saved results to: output.csv");
 }
 
 // Parse a live macOS system
@@ -121,13 +130,14 @@ fn parse_trace_file(
 
     // Exclude missing data from returned output. Keep separate until we parse all oversize entries.
     // Then at end, go through all missing data and check all parsed oversize entries again
-    let mut exclude_missing = true;
+    let exclude_missing = true;
     let mut missing_data: Vec<UnifiedLogData> = Vec::new();
 
     let mut archive_path = PathBuf::from(path);
     archive_path.push("Persist");
+    let mut log_data_vec: Vec<String> = Vec::new();
 
-    let mut log_count = 0;
+    // let mut log_count = 0;
     if archive_path.exists() {
         let paths = fs::read_dir(&archive_path).unwrap();
 
@@ -135,12 +145,14 @@ fn parse_trace_file(
         for log_path in paths {
             let data = log_path.unwrap();
             let full_path = data.path().display().to_string();
-            println!("Parsing: {}", full_path);
 
             let log_data = if data.path().exists() {
-                parse_log(&full_path).unwrap()
+                match parse_log(&full_path) {
+                    Ok(results) => results,
+                    Err(err) => continue
+                }
             } else {
-                println!("File {} no longer on disk", full_path);
+                //println!("File {} no longer on disk", full_path);
                 continue;
             };
 
@@ -159,10 +171,16 @@ fn parse_trace_file(
 
             // Track missing logs
             missing_data.push(missing_logs);
-            log_count += results.len();
-            output(&results).unwrap();
+            // log_count += results.len();
+            let mut messages = output(&results);
+            log_data_vec.append(&mut messages)
         }
     }
+
+    if log_data_vec.len() > 0 {
+        println!("{}", log_data_vec[log_data_vec.len() - 1].to_string())
+    }
+    /*
 
     archive_path.pop();
     archive_path.push("Special");
@@ -270,7 +288,6 @@ fn parse_trace_file(
         }
     }
     archive_path.pop();
-
     archive_path.push("logdata.LiveData.tracev3");
 
     // Check if livedata exists. We only have it if 'log collect' was used
@@ -317,12 +334,16 @@ fn parse_trace_file(
         log_count += results.len();
 
         output(&results).unwrap();
-    }
+    } 
     println!("Parsed {} log entries", log_count);
+    */
 }
 
 // Create csv file and create headers
+/*    
 fn output_header() -> Result<(), Box<dyn Error>> {
+
+ println!("Timestamp, PID, Library, Process, Message");
     let args = Args::parse();
 
     let csv_file = OpenOptions::new()
@@ -346,15 +367,38 @@ fn output_header() -> Result<(), Box<dyn Error>> {
         "Process",
         "Process UUID",
         "Message",
-        "Raw Message",
-        "Boot UUID",
-        "System Timezone Name",
+        //"Raw Message",
+        //"Boot UUID",
+        //"System Timezone Name",
     ])?;
     Ok(())
 }
+ */
 
 // Append or create csv file
-fn output(results: &Vec<LogData>) -> Result<(), Box<dyn Error>> {
+fn output(results: &Vec<LogData>) -> Vec<String> {
+    let mut message_vec: Vec<String> = Vec::new();
+    let message_re = Regex::new(
+        r"Battery Health:.*MaxCapacity:([0-9]+)"
+    ).unwrap();
+    for data in results {
+        //let date_time = Utc.timestamp_nanos(data.time as i64);
+        if data.subsystem == "powerd" && message_re.is_match(&data.message) {
+            let percent = message_re.captures(&data.message).unwrap();
+            message_vec.push(percent.get(1).map_or("", |m| m.as_str()).to_string());
+            /* println!("{}, {}, {}, {}", 
+                date_time.to_rfc3339_opts(SecondsFormat::Millis, true), 
+                data.pid.to_string(),
+                data.subsystem.to_owned(),
+                //data.process.to_owned(),
+                data.message.to_owned()
+            ); */
+        }
+    }
+
+    message_vec
+
+    /*
     let args = Args::parse();
 
     let csv_file = OpenOptions::new()
@@ -380,10 +424,10 @@ fn output(results: &Vec<LogData>) -> Result<(), Box<dyn Error>> {
             data.process.to_owned(),
             data.process_uuid.to_owned(),
             data.message.to_owned(),
-            data.raw_message.to_owned(),
-            data.boot_uuid.to_owned(),
-            data.timezone_name.to_owned(),
+            //data.raw_message.to_owned(),
+            //data.boot_uuid.to_owned(),
+            //data.timezone_name.to_owned(),
         ])?;
     }
-    Ok(())
+     */
 }
