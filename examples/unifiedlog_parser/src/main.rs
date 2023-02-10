@@ -159,8 +159,8 @@ fn parse_trace_file(
                     str_buffer.contains("MaxCapacity:"){
                         let str_len = str_buffer.len() as u32;
                         batterhealth_string_offset = entry.range_start_offset + ch_offset - str_real_offset - str_len;
-                        //println!("{} {} {} {} {} {}", str_buffer, batteryhealth_offset, str_real_offset, ch_offset, entry.range_start_offset, entry.entry_size);
-                        //bh_pos = batteryhealth_offset;
+                        // println!("{} {} {} {} {} {}", str_buffer, batterhealth_string_offset, str_real_offset, ch_offset, entry.range_start_offset, entry.entry_size);
+                        // bh_pos = batteryhealth_offset;
                         break;
                     }
     
@@ -184,63 +184,146 @@ fn parse_trace_file(
     let mut missing_data: Vec<UnifiedLogData> = Vec::new();
 
     let mut archive_path = PathBuf::from(path);
-    archive_path.push("Persist");
     let mut log_data_vec: Vec<String> = Vec::new();
 
-    // let mut log_count = 0;
+
+    archive_path.push("logdata.LiveData.tracev3");
+
+    // Check if livedata exists. We only have it if 'log collect' was used
     if archive_path.exists() {
-      
-        // let paths = fs::read_dir(&archive_path).unwrap();
-        let mut paths:Vec<DirEntry> = WalkDir::new(&archive_path)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|entry| entry.file_type().is_file()).collect();
+        // println!("Parsing: logdata.LiveData.tracev3");
+        let mut log_data = parse_log(&archive_path.display().to_string(), batterhealth_string_offset).unwrap();
+        log_data.oversize.append(&mut oversize_strings.oversize);
+        let (results, missing_logs) = build_log(
+            &log_data,
+            string_results,
+            shared_strings_results,
+            timesync_data,
+            exclude_missing,
+            batterhealth_string_offset,
+        );
+        // Track missing data
+        missing_data.push(missing_logs);
 
-        paths.sort_by(|a, b| alphanumeric_sort::compare_path(b.path().display().to_string(), a.path().display().to_string()));
+        let mut messages = output(&results);
+        if messages.len() > 0 {
+            log_data_vec.append(&mut messages);
+            //let duration = start.elapsed();
+            //println!("Time elapsed in expensive_function() is: {:?}", duration);
+        }
+        // Track oversize entries
+        oversize_strings.oversize = log_data.oversize;
+    }
 
-        // Loop through all tracev3 files in Persist directory
-        for log_path in paths {
-            let full_path = log_path.path().display().to_string();
 
+    if log_data_vec.len() == 0 {
+        archive_path.pop();
+        archive_path.push("Special");
 
-            let log_data = if log_path.path().exists() {
-                match parse_log(&full_path, batterhealth_string_offset) {
-                    Ok(results) => results,
-                    Err(err) => continue
+        if archive_path.exists() {
+            let paths = fs::read_dir(&archive_path).unwrap();
+
+            // Loop through all tracev3 files in Special directory
+            for log_path in paths {
+                let data = log_path.unwrap();
+                let full_path = data.path().display().to_string();
+                //println!("Parsing: {}", full_path);
+
+                let mut log_data = if data.path().exists() {
+                    parse_log(&full_path, batterhealth_string_offset).unwrap()
+                } else {
+                    // println!("File {} no longer on disk", full_path);
+                    continue;
+                };
+
+                // Append our old Oversize entries in case these logs point to other Oversize entries the previous tracev3 files
+                log_data.oversize.append(&mut oversize_strings.oversize);
+                let (results, missing_logs) = build_log(
+                    &log_data,
+                    string_results,
+                    shared_strings_results,
+                    timesync_data,
+                    exclude_missing,
+                    batterhealth_string_offset,
+                );
+                // Track Oversize entries
+                oversize_strings.oversize = log_data.oversize;
+                // Track missing logs
+                missing_data.push(missing_logs);
+                let mut messages = output(&results);
+                if messages.len() > 0 {
+                    log_data_vec.append(&mut messages);
+                    //let duration = start.elapsed();
+                    //println!("Time elapsed in expensive_function() is: {:?}", duration);
                 }
-            } else {
-                //println!("File {} no longer on disk", full_path);
-                continue;
-            };
-
-            // Get all constructed logs and any log data that failed to get constrcuted (exclude_missing = true)
-            let (results, missing_logs) = build_log(
-                &log_data,
-                string_results,
-                shared_strings_results,
-                timesync_data,
-                exclude_missing,
-                batterhealth_string_offset,
-            );
-
-            // Track Oversize entries
-            // oversize_strings
-            //    .oversize
-            //    .append(&mut log_data.oversize.to_owned());
-
-            // Track missing logs
-            // missing_data.push(missing_logs);
-            // log_count += results.len();
-            let mut messages = output(&results);
-            if messages.len() > 0 {
-                log_data_vec.append(&mut messages);
-                //let duration = start.elapsed();
-                //println!("Time elapsed in expensive_function() is: {:?}", duration);
-                break
             }
-
         }
     }
+
+
+    if log_data_vec.len() == 0 {
+
+        archive_path.pop();
+        archive_path.push("Persist");
+
+        // let mut log_count = 0;
+        if archive_path.exists() {
+        
+            // let paths = fs::read_dir(&archive_path).unwrap();
+            let mut paths:Vec<DirEntry> = WalkDir::new(&archive_path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|entry| entry.file_type().is_file()).collect();
+
+            paths.sort_by(|a, b| alphanumeric_sort::compare_path(b.path().display().to_string(), a.path().display().to_string()));
+
+            // Loop through all tracev3 files in Persist directory
+            for log_path in paths {
+                let full_path = log_path.path().display().to_string();
+
+
+                let log_data = if log_path.path().exists() {
+                    match parse_log(&full_path, batterhealth_string_offset) {
+                        Ok(results) => results,
+                        Err(err) => continue
+                    }
+                } else {
+                    //println!("File {} no longer on disk", full_path);
+                    continue;
+                };
+
+                // Get all constructed logs and any log data that failed to get constrcuted (exclude_missing = true)
+                let (results, missing_logs) = build_log(
+                    &log_data,
+                    string_results,
+                    shared_strings_results,
+                    timesync_data,
+                    exclude_missing,
+                    batterhealth_string_offset,
+                );
+
+                // Track Oversize entries
+                // oversize_strings
+                //    .oversize
+                //    .append(&mut log_data.oversize.to_owned());
+
+                // Track missing logs
+                // missing_data.push(missing_logs);
+                // log_count += results.len();
+                let mut messages = output(&results);
+                if messages.len() > 0 {
+                    log_data_vec.append(&mut messages);
+                    //let duration = start.elapsed();
+                    //println!("Time elapsed in expensive_function() is: {:?}", duration);
+                    break
+                }
+
+            }
+        }
+    }
+
+
+    
 
     if log_data_vec.len() > 0 {
         println!("{}", log_data_vec[log_data_vec.len() - 1].to_string())
