@@ -221,23 +221,33 @@ fn parse_trace_file(
         archive_path.push("Special");
 
         if archive_path.exists() {
-            let paths = fs::read_dir(&archive_path).unwrap();
+
+            let mut paths:Vec<DirEntry> = WalkDir::new(&archive_path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|entry| entry.file_type().is_file()).collect();
+
+            paths.sort_by(|a, b| alphanumeric_sort::compare_path(b.path().display().to_string(), a.path().display().to_string()));
+
+            // let paths = fs::read_dir(&archive_path).unwrap();
 
             // Loop through all tracev3 files in Special directory
             for log_path in paths {
-                let data = log_path.unwrap();
-                let full_path = data.path().display().to_string();
-                //println!("Parsing: {}", full_path);
+                let full_path = log_path.path().display().to_string();
 
-                let mut log_data = if data.path().exists() {
-                    parse_log(&full_path, batterhealth_string_offset).unwrap()
+
+                let log_data = if log_path.path().exists() {
+                    match parse_log(&full_path, batterhealth_string_offset) {
+                        Ok(results) => results,
+                        Err(err) => continue
+                    }
                 } else {
-                    // println!("File {} no longer on disk", full_path);
+                    //println!("File {} no longer on disk", full_path);
                     continue;
                 };
 
                 // Append our old Oversize entries in case these logs point to other Oversize entries the previous tracev3 files
-                log_data.oversize.append(&mut oversize_strings.oversize);
+                //log_data.oversize.append(&mut oversize_strings.oversize);
                 let (results, missing_logs) = build_log(
                     &log_data,
                     string_results,
@@ -247,7 +257,7 @@ fn parse_trace_file(
                     batterhealth_string_offset,
                 );
                 // Track Oversize entries
-                oversize_strings.oversize = log_data.oversize;
+                //oversize_strings.oversize = log_data.oversize;
                 // Track missing logs
                 missing_data.push(missing_logs);
                 let mut messages = output(&results);
