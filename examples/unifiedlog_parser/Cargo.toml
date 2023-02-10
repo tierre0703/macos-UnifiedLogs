@@ -13,3 +13,5 @@ log = "0.4.14"
 regex = "1.7.1"
 macos-unifiedlogs = {path = "../../"}
 clap = {version = "3.2.22", features = ["derive"]}
+walkdir = "2.3.2"
+alphanumeric-sort = "1.4.4"

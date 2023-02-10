@@ -13,6 +13,8 @@ use crate::timesync::TimesyncBoot;
 use crate::unified_log::{LogData, UnifiedLogData};
 use crate::uuidtext::UUIDText;
 use std::fs;
+use memmap::Mmap;
+use std::time::Instant;
 
 /// Parse the UUID files on a live system
 pub fn collect_strings_system() -> Result<Vec<UUIDText>, ParserError> {
@@ -34,18 +36,14 @@ pub fn collect_timesync_system() -> Result<Vec<TimesyncBoot>, ParserError> {
 
 /// Parse a tracev3 file and return the deconstructed log data
 pub fn parse_log(full_path: &str) -> Result<UnifiedLogData, ParserError> {
-    let buffer_results = fs::read(full_path);
+    let file = fs::File::open(full_path).unwrap();
+    let mmap = unsafe { Mmap::map(&file).unwrap() };
 
-    let buffer = match buffer_results {
-        Ok(results) => results,
-        Err(err) => {
-            error!(
-                "[macos-unifiedlogs] Failed to read the tracev3 file {}: {:?}",
-                full_path, err
-            );
-            return Err(ParserError::Read);
-        }
-    };
+    // Access the contents of the memory-mapped file as a slice
+    let contents = &mmap[..];
+
+    let buffer: Vec<u8> = contents.iter().cloned().collect();
+
     info!("Read {} bytes for file {}", buffer.len(), full_path);
 
     let log_data_results = LogData::parse_unified_log(&buffer);
@@ -70,6 +68,7 @@ pub fn build_log(
     shared_strings: &[SharedCacheStrings],
     timesync_data: &[TimesyncBoot],
     exclude_missing: bool,
+    batteryhealth_offset: u32,
 ) -> (Vec<LogData>, UnifiedLogData) {
     LogData::build_log(
         unified_data,
@@ -77,6 +76,7 @@ pub fn build_log(
         shared_strings,
         timesync_data,
         exclude_missing,
+        batteryhealth_offset,
     )
 }
 

@@ -22,6 +22,11 @@ use std::fs;
 use std::path::PathBuf;
 use regex::Regex;
 use clap::Parser;
+
+use std::time::Instant;
+use walkdir::{DirEntry, WalkDir};
+use alphanumeric_sort;
+use std::cmp::Ordering;
 /* use serde::Serialize;
 
 
@@ -127,7 +132,52 @@ fn parse_trace_file(
         catalog_data: Vec::new(),
         oversize: Vec::new(),
     };
+    let start = Instant::now();
 
+    let mut batterhealth_string_offset: u32 = 0;
+
+    
+    let mut str_real_offset: u32 = 0;
+    let mut ch_offset: u32 = 0;
+
+    for string_entry in string_results {
+        let strings = &string_entry.footer_data;
+        let footer_data: &[u8] = strings;
+        let mut str_buffer = String::new();
+        let mut ch: char = char::from(0);
+
+        for entry_index in 0..string_entry.entry_descriptors.len() {
+            let entry = string_entry.entry_descriptors.get(entry_index).unwrap();
+            ch_offset = str_real_offset;
+    
+            while ch_offset < str_real_offset + entry.entry_size {
+                ch = footer_data[ch_offset as usize] as char;
+                if ch == char::from(0) {
+                    // end of string
+                    // check string
+                    if str_buffer.contains("Updated Battery Health") &&
+                    str_buffer.contains("MaxCapacity:"){
+                        let str_len = str_buffer.len() as u32;
+                        batterhealth_string_offset = entry.range_start_offset + ch_offset - str_real_offset - str_len;
+                        //println!("{} {} {} {} {} {}", str_buffer, batteryhealth_offset, str_real_offset, ch_offset, entry.range_start_offset, entry.entry_size);
+                        //bh_pos = batteryhealth_offset;
+                        break;
+                    }
+    
+                    str_buffer = String::new();
+                }else{
+                    str_buffer.push(ch);
+                }
+                ch_offset += 1;
+            }
+    
+            str_real_offset += entry.entry_size;
+        }
+    
+    }
+
+
+    
     // Exclude missing data from returned output. Keep separate until we parse all oversize entries.
     // Then at end, go through all missing data and check all parsed oversize entries again
     let exclude_missing = true;
@@ -139,14 +189,21 @@ fn parse_trace_file(
 
     // let mut log_count = 0;
     if archive_path.exists() {
-        let paths = fs::read_dir(&archive_path).unwrap();
+      
+        // let paths = fs::read_dir(&archive_path).unwrap();
+        let mut paths:Vec<DirEntry> = WalkDir::new(&archive_path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|entry| entry.file_type().is_file()).collect();
+
+        paths.sort_by(|a, b| alphanumeric_sort::compare_path(b.path().display().to_string(), a.path().display().to_string()));
 
         // Loop through all tracev3 files in Persist directory
         for log_path in paths {
-            let data = log_path.unwrap();
-            let full_path = data.path().display().to_string();
+            let full_path = log_path.path().display().to_string();
 
-            let log_data = if data.path().exists() {
+
+            let log_data = if log_path.path().exists() {
                 match parse_log(&full_path) {
                     Ok(results) => results,
                     Err(err) => continue
@@ -163,17 +220,25 @@ fn parse_trace_file(
                 shared_strings_results,
                 timesync_data,
                 exclude_missing,
+                batterhealth_string_offset,
             );
+
             // Track Oversize entries
-            oversize_strings
-                .oversize
-                .append(&mut log_data.oversize.to_owned());
+            // oversize_strings
+            //    .oversize
+            //    .append(&mut log_data.oversize.to_owned());
 
             // Track missing logs
-            missing_data.push(missing_logs);
+            // missing_data.push(missing_logs);
             // log_count += results.len();
             let mut messages = output(&results);
-            log_data_vec.append(&mut messages)
+            if messages.len() > 0 {
+                log_data_vec.append(&mut messages);
+                let duration = start.elapsed();
+                println!("Time elapsed in expensive_function() is: {:?}", duration);
+                break
+            }
+
         }
     }
 
@@ -383,9 +448,14 @@ fn output(results: &Vec<LogData>) -> Vec<String> {
     ).unwrap();
     for data in results {
         //let date_time = Utc.timestamp_nanos(data.time as i64);
-        if data.subsystem == "powerd" && message_re.is_match(&data.message) {
+        //if message_re.is_match(&data.message) {
+        if data.message != "" {
             let percent = message_re.captures(&data.message).unwrap();
+
             message_vec.push(percent.get(1).map_or("", |m| m.as_str()).to_string());
+            break
+
+        }
             /* println!("{}, {}, {}, {}", 
                 date_time.to_rfc3339_opts(SecondsFormat::Millis, true), 
                 data.pid.to_string(),
@@ -393,7 +463,7 @@ fn output(results: &Vec<LogData>) -> Vec<String> {
                 //data.process.to_owned(),
                 data.message.to_owned()
             ); */
-        }
+        //}
     }
 
     message_vec

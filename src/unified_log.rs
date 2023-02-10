@@ -191,6 +191,7 @@ impl LogData {
         shared_strings: &[SharedCacheStrings],
         timesync_data: &[TimesyncBoot],
         exclude_mssing: bool,
+        batteryhealth_offset: u32,
     ) -> (Vec<LogData>, UnifiedLogData) {
         let mut log_data_vec: Vec<LogData> = Vec::new();
         // Need to keep track of any log entries that fail to find Oversize strings (sometimes the strings may be in other log files that have not been parsed yet)
@@ -199,6 +200,8 @@ impl LogData {
             catalog_data: Vec::new(),
             oversize: Vec::new(),
         };
+
+
         /*
         Crazy Regex to try to get all log message formatters
         Formatters are based off of printf formatters with additional Apple values
@@ -240,77 +243,7 @@ impl LogData {
             for (preamble_index, preamble) in catalog_data.firehose.iter().enumerate() {
                 for (firehose_index, firehose) in preamble.public_data.iter().enumerate() {
                     // The continous time is actually 6 bytes long. Combining 4 bytes and 2 bytes
-                    let firehose_log_entry_continous_time =
-                        u64::from(firehose.continous_time_delta)
-                            | ((u64::from(firehose.continous_time_delta_upper)) << 32);
-
-                    let continous_time =
-                        preamble.base_continous_time + firehose_log_entry_continous_time;
-
-                    // Calculate the timestamp for the log entry
-                    let timestamp = TimesyncBoot::get_timestamp(
-                        timesync_data,
-                        &unified_log_data.header[0].boot_uuid,
-                        continous_time,
-                        preamble.base_continous_time,
-                    );
-
-                    // Our struct format to hold and show the log data
-                    let mut log_data = LogData {
-                        subsystem: String::new(),
-                        thread_id: firehose.thread_id,
-                        pid: CatalogChunk::get_pid(
-                            &preamble.first_number_proc_id,
-                            &preamble.second_number_proc_id,
-                            &catalog_data.catalog,
-                        ),
-                        library: String::new(),
-                        activity_id: 0,
-                        time: timestamp,
-                        category: String::new(),
-                        log_type: LogData::get_log_type(
-                            &firehose.unknown_log_type,
-                            &firehose.unknown_log_activity_type,
-                        ),
-                        process: String::new(),
-                        message: String::new(),
-                        event_type: LogData::get_event_type(&firehose.unknown_log_activity_type),
-                        euid: CatalogChunk::get_euid(
-                            &preamble.first_number_proc_id,
-                            &preamble.second_number_proc_id,
-                            &catalog_data.catalog,
-                        ),
-                        boot_uuid: unified_log_data.header[0].boot_uuid.to_owned(),
-                        timezone_name: unified_log_data.header[0]
-                            .timezone_path
-                            .split('/')
-                            .last()
-                            .unwrap_or("Unknown Timezone Name")
-                            .to_string(),
-                        library_uuid: String::new(),
-                        process_uuid: String::new(),
-                        raw_message: String::new(),
-                        message_entries: firehose.message.item_info.to_owned(),
-                    };
-
-                    if firehose.firehose_non_activity.subsystem_value != 0 {
-                        let results = CatalogChunk::get_subsystem(
-                            &firehose.firehose_non_activity.subsystem_value,
-                            &preamble.first_number_proc_id,
-                            &preamble.second_number_proc_id,
-                            &catalog_data.catalog,
-                        );
-                        match results {
-                            Ok((_, subsystem)) => {
-                                log_data.subsystem = subsystem.subsystem;
-                                log_data.category = subsystem.category;
-                            }
-                            Err(err) => warn!(
-                                "[macos-unifiedlogs] Failed to get subsystem: {:?}",
-                                err
-                            ),
-                        }
-                    }
+                   
 
 
 
@@ -321,7 +254,63 @@ impl LogData {
                     // 0x3 - Trace log entry. Ex: trace default
                     match firehose.unknown_log_activity_type {
                         0x4 => {
-                            if log_data.subsystem == "powerd" {
+                            
+                            //if log_data.subsystem == "powerd" {
+                            if firehose.format_string_location == batteryhealth_offset {
+
+                                let firehose_log_entry_continous_time =
+                                u64::from(firehose.continous_time_delta)
+                                    | ((u64::from(firehose.continous_time_delta_upper)) << 32);
+        
+                            let continous_time =
+                                preamble.base_continous_time + firehose_log_entry_continous_time;
+        
+                            // Calculate the timestamp for the log entry
+                            let timestamp = TimesyncBoot::get_timestamp(
+                                timesync_data,
+                                &unified_log_data.header[0].boot_uuid,
+                                continous_time,
+                                preamble.base_continous_time,
+                            );
+        
+                            // Our struct format to hold and show the log data
+                            let mut log_data = LogData {
+                                subsystem: String::new(),
+                                thread_id: firehose.thread_id,
+                                pid: CatalogChunk::get_pid(
+                                    &preamble.first_number_proc_id,
+                                    &preamble.second_number_proc_id,
+                                    &catalog_data.catalog,
+                                ),
+                                library: String::new(),
+                                activity_id: 0,
+                                time: timestamp,
+                                category: String::new(),
+                                log_type: LogData::get_log_type(
+                                    &firehose.unknown_log_type,
+                                    &firehose.unknown_log_activity_type,
+                                ),
+                                process: String::new(),
+                                message: String::new(),
+                                event_type: LogData::get_event_type(&firehose.unknown_log_activity_type),
+                                euid: CatalogChunk::get_euid(
+                                    &preamble.first_number_proc_id,
+                                    &preamble.second_number_proc_id,
+                                    &catalog_data.catalog,
+                                ),
+                                boot_uuid: unified_log_data.header[0].boot_uuid.to_owned(),
+                                timezone_name: unified_log_data.header[0]
+                                    .timezone_path
+                                    .split('/')
+                                    .last()
+                                    .unwrap_or("Unknown Timezone Name")
+                                    .to_string(),
+                                library_uuid: String::new(),
+                                process_uuid: String::new(),
+                                raw_message: String::new(),
+                                message_entries: firehose.message.item_info.to_owned(),
+                            };
+        
 
                                 log_data.activity_id =
                                 u64::from(firehose.firehose_non_activity.unknown_activity_id);
@@ -391,6 +380,9 @@ impl LogData {
                                             log_message
                                         );
                                     } else {
+                                        // if log_message.contains("Updated Battery Health") {
+                                        //    println!("{} / {} / {} / {}", log_message, log_data.raw_message, u64::from(firehose.format_string_location), log_data.process_uuid);
+                                        //}
                                         log_data.message = log_message;
                                     }
                                 }
@@ -398,7 +390,9 @@ impl LogData {
                                     warn!("[macos-unifiedlogs] Failed to get message string data for firehose non-activity log entry: {:?}", err);
                                 }
                             }
- 
+
+
+                            log_data_vec.push(log_data);
                         }
 
                         }
@@ -615,7 +609,7 @@ impl LogData {
                             //)
                     },
                     }
-                    log_data_vec.push(log_data);
+                    //log_data_vec.push(log_data);
                 }
             }
 

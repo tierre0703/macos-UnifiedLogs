@@ -20,11 +20,18 @@ pub struct UUIDText {
     pub number_entries: u32,
     pub entry_descriptors: Vec<UUIDTextEntry>,
     pub footer_data: Vec<u8>, // Collection of strings containing sender process/library with end of string characters
+    pub bh_pos: u32,
 }
 #[derive(Debug)]
 pub struct UUIDTextEntry {
     pub range_start_offset: u32,
     pub entry_size: u32,
+}
+
+#[derive(Debug)]
+pub struct UUIDTextData {
+    pub str_offset: u32,
+    pub text: String,
 }
 impl UUIDText {
     /// Parse the UUID files in uuidinfo directory. Contains the base log message string
@@ -37,52 +44,71 @@ impl UUIDText {
             number_entries: 0,
             entry_descriptors: Vec::new(),
             footer_data: Vec::new(),
+            bh_pos: 0,
         };
 
-        let expected_uuidtext_signature = 0x66778899;
-        let (input, signature) = take(size_of::<u32>())(data)?;
-        let (_, uuidtext_signature) = le_u32(signature)?;
 
-        if expected_uuidtext_signature != uuidtext_signature {
-            error!(
-                "[macos-unifiedlogs] Incorrect UUIDText header signature. Expected {}. Got: {}",
-                expected_uuidtext_signature, uuidtext_signature
-            );
+        let length = data.len();
+        if length > 7 && 
+            data[length - 1] == 0 &&
+            data[length - 2] == b'd' &&
+            data[length - 3] == b'r' &&
+            data[length - 4] == b'e' &&
+            data[length - 5] == b'w' &&
+            data[length - 6] == b'o' &&
+            data[length - 7] == b'p' {
+                let expected_uuidtext_signature = 0x66778899;
+                let (input, signature) = take(size_of::<u32>())(data)?;
+                let (_, uuidtext_signature) = le_u32(signature)?;
+        
+                if expected_uuidtext_signature != uuidtext_signature {
+                    error!(
+                        "[macos-unifiedlogs] Incorrect UUIDText header signature. Expected {}. Got: {}",
+                        expected_uuidtext_signature, uuidtext_signature
+                    );
+                    return Err(nom::Err::Incomplete(Needed::Unknown));
+                }
+        
+                let (input, unknown_major_version) = take(size_of::<u32>())(input)?;
+                let (input, unknown_minor_version) = take(size_of::<u32>())(input)?;
+                let (mut input, number_entries) = take(size_of::<u32>())(input)?;
+        
+                let (_, uuidtext_unknown_major_version) = le_u32(unknown_major_version)?;
+                let (_, uuidtext_unknown_minor_version) = le_u32(unknown_minor_version)?;
+                let (_, uuidtext_number_entries) = le_u32(number_entries)?;
+        
+                uuidtext_data.signature = uuidtext_signature;
+                uuidtext_data.unknown_major_version = uuidtext_unknown_major_version;
+                uuidtext_data.unknown_minor_version = uuidtext_unknown_minor_version;
+                uuidtext_data.number_entries = uuidtext_number_entries;
+        
+                let mut count = 0;
+
+                while count < uuidtext_number_entries {
+                    let (entry_input, range_start_offset) = take(size_of::<u32>())(input)?;
+                    let (entry_input, entry_size) = take(size_of::<u32>())(entry_input)?;
+        
+                    let (_, uuidtext_range_start_offset) = le_u32(range_start_offset)?;
+                    let (_, uuidtext_entry_size) = le_u32(entry_size)?;
+        
+                    let entry_data = UUIDTextEntry {
+                        range_start_offset: uuidtext_range_start_offset,
+                        entry_size: uuidtext_entry_size,
+                    };
+                    uuidtext_data.entry_descriptors.push(entry_data);
+        
+                    input = entry_input;
+                    count += 1;
+
+                }
+                uuidtext_data.footer_data = input.to_vec();
+
+                Ok((input, uuidtext_data))
+        } else {
             return Err(nom::Err::Incomplete(Needed::Unknown));
         }
 
-        let (input, unknown_major_version) = take(size_of::<u32>())(input)?;
-        let (input, unknown_minor_version) = take(size_of::<u32>())(input)?;
-        let (mut input, number_entries) = take(size_of::<u32>())(input)?;
 
-        let (_, uuidtext_unknown_major_version) = le_u32(unknown_major_version)?;
-        let (_, uuidtext_unknown_minor_version) = le_u32(unknown_minor_version)?;
-        let (_, uuidtext_number_entries) = le_u32(number_entries)?;
-
-        uuidtext_data.signature = uuidtext_signature;
-        uuidtext_data.unknown_major_version = uuidtext_unknown_major_version;
-        uuidtext_data.unknown_minor_version = uuidtext_unknown_minor_version;
-        uuidtext_data.number_entries = uuidtext_number_entries;
-
-        let mut count = 0;
-        while count < uuidtext_number_entries {
-            let (entry_input, range_start_offset) = take(size_of::<u32>())(input)?;
-            let (entry_input, entry_size) = take(size_of::<u32>())(entry_input)?;
-
-            let (_, uuidtext_range_start_offset) = le_u32(range_start_offset)?;
-            let (_, uuidtext_entry_size) = le_u32(entry_size)?;
-
-            let entry_data = UUIDTextEntry {
-                range_start_offset: uuidtext_range_start_offset,
-                entry_size: uuidtext_entry_size,
-            };
-            uuidtext_data.entry_descriptors.push(entry_data);
-
-            input = entry_input;
-            count += 1;
-        }
-        uuidtext_data.footer_data = input.to_vec();
-        Ok((input, uuidtext_data))
     }
 }
 
