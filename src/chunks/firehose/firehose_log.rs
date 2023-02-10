@@ -87,6 +87,7 @@ impl FirehosePreamble {
     /// Parse the start of the Firehose data
     pub fn parse_firehose_preamble(
         firehose_input_data: &[u8],
+        bh_offset: u32,
     ) -> nom::IResult<&[u8], FirehosePreamble> {
         let mut firehose_data = FirehosePreamble {
             chunk_tag: 0,
@@ -213,14 +214,19 @@ impl FirehosePreamble {
                         }
                     }
                 }
-                firehose_data.public_data.push(firehose_public_data);
+                if firehose_public_data.format_string_location == bh_offset {
+                    firehose_data.public_data.push(firehose_public_data);
+                }
                 break;
             }
-            firehose_data.public_data.push(firehose_public_data);
+            if firehose_public_data.format_string_location == bh_offset {
+                firehose_data.public_data.push(firehose_public_data);
+            }
+                
         }
 
         // If there is private data, go through and update any logs that have private data items
-        if firehose_private_data_virtual_offset != 0x1000 {
+        /* if firehose_private_data_virtual_offset != 0x1000 {
             debug!("[macos-unifiedlogs] Parsing Private Firehose Data");
             // Nom any padding
             let (mut private_input, _) = take_while(|b: u8| b == 0)(input)?;
@@ -244,7 +250,7 @@ impl FirehosePreamble {
                     FirehosePreamble::parse_private_data(private_string_start, &mut data.message)?;
             }
             input = private_input;
-        }
+        } */
         Ok((input, firehose_data))
     }
 

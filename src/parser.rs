@@ -35,7 +35,7 @@ pub fn collect_timesync_system() -> Result<Vec<TimesyncBoot>, ParserError> {
 }
 
 /// Parse a tracev3 file and return the deconstructed log data
-pub fn parse_log(full_path: &str) -> Result<UnifiedLogData, ParserError> {
+pub fn parse_log(full_path: &str, bh_offset: u32) -> Result<UnifiedLogData, ParserError> {
     let file = fs::File::open(full_path).unwrap();
     let mmap = unsafe { Mmap::map(&file).unwrap() };
 
@@ -46,7 +46,7 @@ pub fn parse_log(full_path: &str) -> Result<UnifiedLogData, ParserError> {
 
     info!("Read {} bytes for file {}", buffer.len(), full_path);
 
-    let log_data_results = LogData::parse_unified_log(&buffer);
+    let log_data_results = LogData::parse_unified_log(&buffer, bh_offset);
     match log_data_results {
         Ok((_, log_data)) => Ok(log_data),
         Err(err) => {

@@ -119,6 +119,7 @@ impl ChunksetChunk {
     pub fn parse_chunkset_data<'a>(
         data: &'a [u8],
         unified_log_data: &mut UnifiedLogCatalogData,
+        bh_offset: u32,
     ) -> nom::IResult<&'a [u8], ()> {
         let mut input = data;
         let chunk_preamble_size = 16; // Include preamble size in total chunk size
@@ -130,7 +131,7 @@ impl ChunksetChunk {
 
             // Grab all data associated with log (chunk) data
             let (data, chunk_data) = take(chunk_size + chunk_preamble_size)(input)?;
-            ChunksetChunk::get_chunkset_data(chunk_data, preamble.chunk_tag, unified_log_data);
+            ChunksetChunk::get_chunkset_data(chunk_data, preamble.chunk_tag, unified_log_data, bh_offset);
 
             // Nom all zero padding
             let (remaining_data, _) = take_while(|b: u8| b == 0)(data)?;
@@ -155,6 +156,7 @@ impl ChunksetChunk {
         data: &[u8],
         chunk_type: u32,
         unified_log_data: &mut UnifiedLogCatalogData,
+        bh_offset: u32,
     ) {
         let firehose_chunk = 0x6001;
         let oversize_chunk = 0x6002;
@@ -162,7 +164,7 @@ impl ChunksetChunk {
         let simpledump_chunk = 0x6004;
 
         if chunk_type == firehose_chunk {
-            let firehose_results = FirehosePreamble::parse_firehose_preamble(data);
+            let firehose_results = FirehosePreamble::parse_firehose_preamble(data, bh_offset);
             match firehose_results {
                 Ok((_, firehose_data)) => unified_log_data.firehose.push(firehose_data),
                 Err(err) => error!(
@@ -170,7 +172,7 @@ impl ChunksetChunk {
                     err
                 ),
             }
-        } else if chunk_type == oversize_chunk {
+        /*}  else if chunk_type == oversize_chunk {
             let oversize_results = Oversize::parse_oversize(data);
             match oversize_results {
                 Ok((_, oversize)) => unified_log_data.oversize.push(oversize),
@@ -196,7 +198,7 @@ impl ChunksetChunk {
                     "[macos-unifiedlogs] Failed to parse simpledump log entry (chunk): {:?}",
                     err
                 ),
-            }
+            } */
         } else {
             error!(
                 "[macos-unifiedlogs] Unknown chunkset type: {:?}",

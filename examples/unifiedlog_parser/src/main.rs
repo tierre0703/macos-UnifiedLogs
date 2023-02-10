@@ -204,7 +204,7 @@ fn parse_trace_file(
 
 
             let log_data = if log_path.path().exists() {
-                match parse_log(&full_path) {
+                match parse_log(&full_path, batterhealth_string_offset) {
                     Ok(results) => results,
                     Err(err) => continue
                 }
@@ -234,8 +234,8 @@ fn parse_trace_file(
             let mut messages = output(&results);
             if messages.len() > 0 {
                 log_data_vec.append(&mut messages);
-                let duration = start.elapsed();
-                println!("Time elapsed in expensive_function() is: {:?}", duration);
+                //let duration = start.elapsed();
+                //println!("Time elapsed in expensive_function() is: {:?}", duration);
                 break
             }
 

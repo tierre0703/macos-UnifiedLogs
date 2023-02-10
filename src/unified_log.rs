@@ -72,7 +72,7 @@ pub struct LogData {
 
 impl LogData {
     /// Parse the Unified log data read from a tracev3 file
-    pub fn parse_unified_log(data: &[u8]) -> nom::IResult<&[u8], UnifiedLogData> {
+    pub fn parse_unified_log(data: &[u8], bh_offset: u32) -> nom::IResult<&[u8], UnifiedLogData> {
         let mut unified_log_data_true = UnifiedLogData {
             header: Vec::new(),
             catalog_data: Vec::new(),
@@ -151,6 +151,7 @@ impl LogData {
                     chunk_data,
                     &mut catalog_data,
                     &mut unified_log_data_true,
+                    bh_offset,
                 );
             } else {
                 error!(
@@ -787,6 +788,7 @@ impl LogData {
         data: &[u8],
         catalog_data: &mut UnifiedLogCatalogData,
         unified_log_data: &mut UnifiedLogData,
+        bh_offset: u32,
     ) {
         // Parse and decompress the chunkset entries
         let chunkset_data_results = ChunksetChunk::parse_chunkset(data);
@@ -796,6 +798,7 @@ impl LogData {
                 let _result = ChunksetChunk::parse_chunkset_data(
                     &chunkset_data.decompressed_data,
                     catalog_data,
+                    bh_offset,
                 );
                 unified_log_data.oversize.append(&mut catalog_data.oversize);
             }
