@@ -442,7 +442,7 @@ mod tests {
         test_path.push("tests/test_data/system_logs_big_sur.logarchive");
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         assert_eq!(log_data.catalog_data[0].firehose.len(), 99);
         assert_eq!(log_data.catalog_data[0].simpledump.len(), 0);
@@ -473,7 +473,7 @@ mod tests {
         test_path.pop();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let exclude_missing = false;
         let (results, _) = build_log(
@@ -482,6 +482,7 @@ mod tests {
             &shared_strings_results,
             &timesync_data,
             exclude_missing,
+            0
         );
         assert_eq!(results.len(), 207366);
         assert_eq!(results[10].process, "/usr/libexec/lightsoutmanagementd");

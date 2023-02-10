@@ -2926,7 +2926,7 @@ mod tests {
             16, 0, 12, 0, 178, 249, 0, 0, 0, 0, 0, 128, 105, 67, 61, 0, 0, 0, 0, 0,
         ];
         let (mut data, firehose) =
-            FirehosePreamble::parse_firehose_preamble(&test_firehose_data).unwrap();
+            FirehosePreamble::parse_firehose_preamble(&test_firehose_data, 0).unwrap();
         assert_eq!(firehose.chunk_tag, 0x6001);
         assert_eq!(firehose.chunk_sub_tag, 0);
         assert_eq!(firehose.chunk_data_size, 4032);
@@ -2943,7 +2943,7 @@ mod tests {
 
         let mut firehouse_result_count = firehose.public_data.len();
         while data.len() != 0 {
-            let (test_data, firehose) = FirehosePreamble::parse_firehose_preamble(&data).unwrap();
+            let (test_data, firehose) = FirehosePreamble::parse_firehose_preamble(&data, 0).unwrap();
             data = test_data;
             firehouse_result_count += firehose.public_data.len();
         }
@@ -3047,7 +3047,7 @@ mod tests {
             22, 0, 8, 0, 140, 94, 64, 6, 1, 0, 0, 0, 4, 0, 4, 2, 96, 153, 65, 6, 175, 149, 170, 0,
             0, 0, 0, 0, 167, 26, 131, 253, 22, 0, 8, 0, 216, 115, 64, 6, 1, 0, 0, 0, 0, 0,
         ];
-        let (_, results) = FirehosePreamble::parse_firehose_preamble(&data).unwrap();
+        let (_, results) = FirehosePreamble::parse_firehose_preamble(&data, 0).unwrap();
         assert_eq!(results.private_data_virtual_offset, 4094);
         assert_eq!(results.first_number_proc_id, 1189179);
         assert_eq!(results.second_number_proc_id, 2685254);
@@ -3103,7 +3103,7 @@ mod tests {
             99, 47, 115, 101, 99, 117, 114, 105, 116, 121, 45, 99, 104, 101, 99, 107, 115, 121,
             115, 116, 101, 109, 0,
         ];
-        let (_, firehose) = FirehosePreamble::parse_firehose_preamble(&test_data).unwrap();
+        let (_, firehose) = FirehosePreamble::parse_firehose_preamble(&test_data, 0).unwrap();
         assert_eq!(firehose.chunk_tag, 0x6001);
         assert_eq!(firehose.chunk_sub_tag, 0);
         assert_eq!(firehose.chunk_data_size, 163);
@@ -3307,7 +3307,7 @@ mod tests {
         let mut buffer = Vec::new();
         open.read_to_end(&mut buffer).unwrap();
 
-        let (_, results) = FirehosePreamble::parse_firehose_preamble(&buffer).unwrap();
+        let (_, results) = FirehosePreamble::parse_firehose_preamble(&buffer, 0).unwrap();
 
         assert_eq!(results.public_data.len(), 51);
 
@@ -3575,7 +3575,7 @@ mod tests {
             0, 0, 0, 0,
         ];
 
-        let (mut data, firehose) = FirehosePreamble::parse_firehose_preamble(&test_data).unwrap();
+        let (mut data, firehose) = FirehosePreamble::parse_firehose_preamble(&test_data, 0).unwrap();
         assert_eq!(firehose.chunk_tag, 0x6001);
         assert_eq!(firehose.chunk_sub_tag, 0);
         assert_eq!(firehose.chunk_data_size, 4104);
@@ -3592,7 +3592,7 @@ mod tests {
 
         let mut firehouse_result_count = firehose.public_data.len();
         while data.len() != 0 {
-            let (test_data, firehose) = FirehosePreamble::parse_firehose_preamble(&data).unwrap();
+            let (test_data, firehose) = FirehosePreamble::parse_firehose_preamble(&data, 0).unwrap();
             data = test_data;
             firehouse_result_count += firehose.public_data.len();
         }

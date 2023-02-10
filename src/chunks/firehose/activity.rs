@@ -288,7 +288,7 @@ mod tests {
         test_path.pop();
 
         test_path.push("Persist/0000000000000004.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let activity_type = 0x2;
 

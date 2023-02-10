@@ -643,7 +643,7 @@ mod tests {
         test_path.pop();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let test_offset = 1331408102;
         let test_first_proc_id = 45;
@@ -683,7 +683,7 @@ mod tests {
         test_path.pop();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let bad_offset = 7;
         let test_first_proc_id = 45;
@@ -720,7 +720,7 @@ mod tests {
         test_path.pop();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let test_offset = 2420246585;
         let test_first_proc_id = 32;
@@ -755,7 +755,7 @@ mod tests {
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let test_offset = 14960;
         let test_first_proc_id = 45;
@@ -786,7 +786,7 @@ mod tests {
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let bad_offset = 1;
         let test_first_proc_id = 45;
@@ -816,7 +816,7 @@ mod tests {
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let test_offset = 2147519968;
         let test_first_proc_id = 38;
@@ -848,7 +848,7 @@ mod tests {
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let bad_offset = 55;
         let test_first_proc_id = 38;
@@ -877,7 +877,7 @@ mod tests {
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let test_offset = 396912;
         let test_absolute_offset = 280925241119206;
@@ -907,7 +907,7 @@ mod tests {
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let test_offset = 396912;
         let bad_offset = 12;
@@ -938,7 +938,7 @@ mod tests {
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let test_offset = 102;
         let test_absolute_offset = 102;
@@ -972,7 +972,7 @@ mod tests {
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let bad_offset = 111;
         let test_absolute_offset = 102;
@@ -1007,7 +1007,7 @@ mod tests {
         test_path.push("tests/test_data/system_logs_big_sur.logarchive");
         let strings = collect_strings(&test_path.display().to_string()).unwrap();
         test_path.push("Persist/0000000000000005.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let first_proc_id = 105;
         let second_proc_id = 240;
@@ -1040,7 +1040,7 @@ mod tests {
         test_path.push("tests/test_data/system_logs_big_sur.logarchive");
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let test_first_proc_id = 136;
         let test_second_proc_id = 342;

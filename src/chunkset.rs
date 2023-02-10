@@ -172,33 +172,33 @@ impl ChunksetChunk {
                     err
                 ),
             }
-        /*}  else if chunk_type == oversize_chunk {
-            let oversize_results = Oversize::parse_oversize(data);
-            match oversize_results {
-                Ok((_, oversize)) => unified_log_data.oversize.push(oversize),
-                Err(err) => error!(
-                    "[macos-unifiedlogs] Failed to parse oversize log entry (chunk): {:?}",
-                    err
-                ),
-            }
-        } else if chunk_type == statedump_chunk {
-            let statedump_results = Statedump::parse_statedump(data);
-            match statedump_results {
-                Ok((_, statedump)) => unified_log_data.statedump.push(statedump),
-                Err(err) => error!(
-                    "[macos-unifiedlogs] Failed to parse statedump log entry (chunk): {:?}",
-                    err
-                ),
-            }
-        } else if chunk_type == simpledump_chunk {
-            let simpledump_results = SimpleDump::parse_simpledump(data);
-            match simpledump_results {
-                Ok((_, simpledump)) => unified_log_data.simpledump.push(simpledump),
-                Err(err) => error!(
-                    "[macos-unifiedlogs] Failed to parse simpledump log entry (chunk): {:?}",
-                    err
-                ),
-            } */
+        //}  else if chunk_type == oversize_chunk {
+        //     let oversize_results = Oversize::parse_oversize(data);
+        //     match oversize_results {
+        //         Ok((_, oversize)) => unified_log_data.oversize.push(oversize),
+        //         Err(err) => error!(
+        //             "[macos-unifiedlogs] Failed to parse oversize log entry (chunk): {:?}",
+        //             err
+        //         ),
+        //     }
+        // } else if chunk_type == statedump_chunk {
+        //     let statedump_results = Statedump::parse_statedump(data);
+        //     match statedump_results {
+        //         Ok((_, statedump)) => unified_log_data.statedump.push(statedump),
+        //         Err(err) => error!(
+        //             "[macos-unifiedlogs] Failed to parse statedump log entry (chunk): {:?}",
+        //             err
+        //         ),
+        //     }
+        // } else if chunk_type == simpledump_chunk {
+        //     let simpledump_results = SimpleDump::parse_simpledump(data);
+        //     match simpledump_results {
+        //         Ok((_, simpledump)) => unified_log_data.simpledump.push(simpledump),
+        //         Err(err) => error!(
+        //             "[macos-unifiedlogs] Failed to parse simpledump log entry (chunk): {:?}",
+        //             err
+        //         ),
+        // }
         } else {
             error!(
                 "[macos-unifiedlogs] Unknown chunkset type: {:?}",

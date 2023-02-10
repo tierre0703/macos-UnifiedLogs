@@ -648,7 +648,7 @@ impl LogData {
                 };
                 log_data_vec.push(log_data);
             }
- */
+            */
             /* for statedump in &catalog_data.statedump {
                 let no_firehose_preamble = 1;
 
@@ -894,7 +894,7 @@ mod tests {
 
         let buffer = fs::read(test_path).unwrap();
 
-        let (_, results) = LogData::parse_unified_log(&buffer).unwrap();
+        let (_, results) = LogData::parse_unified_log(&buffer, 0).unwrap();
         assert_eq!(results.catalog_data.len(), 56);
         assert_eq!(results.header.len(), 1);
         assert_eq!(results.oversize.len(), 12);
@@ -906,7 +906,7 @@ mod tests {
         test_path.push("tests/test_data/Bad Data/TraceV3/Bad_header_0000000000000005.tracev3");
 
         let buffer = fs::read(test_path).unwrap();
-        let (_, results) = LogData::parse_unified_log(&buffer).unwrap();
+        let (_, results) = LogData::parse_unified_log(&buffer, 0).unwrap();
         assert_eq!(results.catalog_data.len(), 36);
         assert_eq!(results.header.len(), 0);
         assert_eq!(results.oversize.len(), 28);
@@ -919,7 +919,7 @@ mod tests {
         test_path.push("tests/test_data/Bad Data/TraceV3/Bad_content_0000000000000005.tracev3");
 
         let buffer = fs::read(test_path).unwrap();
-        let (_, _) = LogData::parse_unified_log(&buffer).unwrap();
+        let (_, _) = LogData::parse_unified_log(&buffer, 0).unwrap();
     }
 
     #[test]
@@ -929,7 +929,7 @@ mod tests {
         test_path.push("tests/test_data/Bad Data/TraceV3/00.tracev3");
 
         let buffer = fs::read(test_path).unwrap();
-        let (_, _) = LogData::parse_unified_log(&buffer).unwrap();
+        let (_, _) = LogData::parse_unified_log(&buffer, 0).unwrap();
     }
 
     #[test]
@@ -949,7 +949,7 @@ mod tests {
 
         test_path.push("Persist/0000000000000002.tracev3");
 
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
 
         let exclude_missing = false;
         let (results, _) = LogData::build_log(
@@ -958,6 +958,7 @@ mod tests {
             &shared_strings_results,
             &timesync_data,
             exclude_missing,
+            0,
         );
         assert_eq!(results.len(), 207366);
         assert_eq!(results[0].process, "/usr/libexec/lightsoutmanagementd");

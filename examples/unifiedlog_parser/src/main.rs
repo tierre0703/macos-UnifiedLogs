@@ -17,7 +17,7 @@ use macos_unifiedlogs::unified_log::{LogData, UnifiedLogData};
 use macos_unifiedlogs::uuidtext::UUIDText;
 // use simplelog::{Config, SimpleLogger};
 // use std::error::Error;
-use std::fs;
+// use std::fs;
 // use std::fs::OpenOptions;
 use std::path::PathBuf;
 use regex::Regex;
@@ -26,27 +26,29 @@ use clap::Parser;
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
 use alphanumeric_sort;
-use std::cmp::Ordering;
-/* use serde::Serialize;
+// use std::cmp::Ordering;
+// use serde::Serialize;
 
 
-#[derive(Debug, Serialize)]
-pub struct MessageData {
-    pub subsystem: String,
-    pub pid: u64,
-    pub message: String,
-}
- */
+// #[derive(Debug, Serialize)]
+// pub struct MessageData {
+//    pub subsystem: String,
+//    pub pid: u64,
+//    pub message: String,
+//}
+
 #[derive(Parser, Debug)]
 #[clap(version, about, long_about = None)]
 struct Args {
-    /// Run on live system
-    #[clap(short, long, default_value = "false")]
-    live: String,
+//
+//    /// Run on live system
+//    #[clap(short, long, default_value = "false")]
+//    live: String,
 
     /// Path to logarchive formatted directory
     #[clap(short, long, default_value = "")]
     input: String,
+
 //
 //    /// Path to output file. Any directories must already exist
 //    #[clap(short, long)]
@@ -65,9 +67,10 @@ fn main() {
 
     if args.input != "" {
         parse_log_archive(&args.input);
-    } else if args.live != "false" {
-        parse_live_system();
-    }
+    } 
+    // else if args.live != "false" {
+    //    parse_live_system();
+    // }
 }
 
 // Parse a provided directory path. Currently expect the path to follow macOS log collect structure
@@ -101,20 +104,20 @@ fn parse_log_archive(path: &str) {
 }
 
 // Parse a live macOS system
-fn parse_live_system() {
-    let strings = collect_strings_system().unwrap();
-    let shared_strings = collect_shared_strings_system().unwrap();
-    let timesync_data = collect_timesync_system().unwrap();
+// fn parse_live_system() {
+//     let strings = collect_strings_system().unwrap();
+//     let shared_strings = collect_shared_strings_system().unwrap();
+//     let timesync_data = collect_timesync_system().unwrap();
 
-    parse_trace_file(
-        &strings,
-        &shared_strings,
-        &timesync_data,
-        "/private/var/db/diagnostics",
-    );
+//     parse_trace_file(
+//         &strings,
+//         &shared_strings,
+//         &timesync_data,
+//         "/private/var/db/diagnostics",
+//     );
 
-    println!("\nFinished parsing Unified Log data. Saved results to: output.csv");
-}
+//     println!("\nFinished parsing Unified Log data. Saved results to: output.csv");
+// }
 
 // Use the provided strings, shared strings, timesync data to parse the Unified Log data at provided path.
 // Currently expect the path to follow macOS log collect structure
@@ -132,10 +135,8 @@ fn parse_trace_file(
         catalog_data: Vec::new(),
         oversize: Vec::new(),
     };
-    let start = Instant::now();
 
     let mut batterhealth_string_offset: u32 = 0;
-
     
     let mut str_real_offset: u32 = 0;
     let mut ch_offset: u32 = 0;
@@ -159,8 +160,6 @@ fn parse_trace_file(
                     str_buffer.contains("MaxCapacity:"){
                         let str_len = str_buffer.len() as u32;
                         batterhealth_string_offset = entry.range_start_offset + ch_offset - str_real_offset - str_len;
-                        // println!("{} {} {} {} {} {}", str_buffer, batterhealth_string_offset, str_real_offset, ch_offset, entry.range_start_offset, entry.entry_size);
-                        // bh_pos = batteryhealth_offset;
                         break;
                     }
     
@@ -208,8 +207,6 @@ fn parse_trace_file(
         let mut messages = output(&results);
         if messages.len() > 0 {
             log_data_vec.append(&mut messages);
-            //let duration = start.elapsed();
-            //println!("Time elapsed in expensive_function() is: {:?}", duration);
         }
         // Track oversize entries
         oversize_strings.oversize = log_data.oversize;
@@ -229,8 +226,6 @@ fn parse_trace_file(
 
             paths.sort_by(|a, b| alphanumeric_sort::compare_path(b.path().display().to_string(), a.path().display().to_string()));
 
-            // let paths = fs::read_dir(&archive_path).unwrap();
-
             // Loop through all tracev3 files in Special directory
             for log_path in paths {
                 let full_path = log_path.path().display().to_string();
@@ -242,12 +237,10 @@ fn parse_trace_file(
                         Err(err) => continue
                     }
                 } else {
-                    //println!("File {} no longer on disk", full_path);
                     continue;
                 };
 
                 // Append our old Oversize entries in case these logs point to other Oversize entries the previous tracev3 files
-                //log_data.oversize.append(&mut oversize_strings.oversize);
                 let (results, missing_logs) = build_log(
                     &log_data,
                     string_results,
@@ -257,14 +250,11 @@ fn parse_trace_file(
                     batterhealth_string_offset,
                 );
                 // Track Oversize entries
-                //oversize_strings.oversize = log_data.oversize;
                 // Track missing logs
                 missing_data.push(missing_logs);
                 let mut messages = output(&results);
                 if messages.len() > 0 {
                     log_data_vec.append(&mut messages);
-                    //let duration = start.elapsed();
-                    //println!("Time elapsed in expensive_function() is: {:?}", duration);
                 }
             }
         }
@@ -276,10 +266,8 @@ fn parse_trace_file(
         archive_path.pop();
         archive_path.push("Persist");
 
-        // let mut log_count = 0;
         if archive_path.exists() {
         
-            // let paths = fs::read_dir(&archive_path).unwrap();
             let mut paths:Vec<DirEntry> = WalkDir::new(&archive_path)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -298,7 +286,6 @@ fn parse_trace_file(
                         Err(err) => continue
                     }
                 } else {
-                    //println!("File {} no longer on disk", full_path);
                     continue;
                 };
 
@@ -338,200 +325,196 @@ fn parse_trace_file(
     if log_data_vec.len() > 0 {
         println!("{}", log_data_vec[log_data_vec.len() - 1].to_string())
     }
-    /*
 
-    archive_path.pop();
-    archive_path.push("Special");
+    // archive_path.pop();
+    // archive_path.push("Special");
 
-    if archive_path.exists() {
-        let paths = fs::read_dir(&archive_path).unwrap();
+    // if archive_path.exists() {
+    //     let paths = fs::read_dir(&archive_path).unwrap();
 
-        // Loop through all tracev3 files in Special directory
-        for log_path in paths {
-            let data = log_path.unwrap();
-            let full_path = data.path().display().to_string();
-            println!("Parsing: {}", full_path);
+    //     // Loop through all tracev3 files in Special directory
+    //     for log_path in paths {
+    //         let data = log_path.unwrap();
+    //         let full_path = data.path().display().to_string();
+    //         println!("Parsing: {}", full_path);
 
-            let mut log_data = if data.path().exists() {
-                parse_log(&full_path).unwrap()
-            } else {
-                println!("File {} no longer on disk", full_path);
-                continue;
-            };
+    //         let mut log_data = if data.path().exists() {
+    //             parse_log(&full_path).unwrap()
+    //         } else {
+    //             println!("File {} no longer on disk", full_path);
+    //             continue;
+    //         };
 
-            // Append our old Oversize entries in case these logs point to other Oversize entries the previous tracev3 files
-            log_data.oversize.append(&mut oversize_strings.oversize);
-            let (results, missing_logs) = build_log(
-                &log_data,
-                string_results,
-                shared_strings_results,
-                timesync_data,
-                exclude_missing,
-            );
-            // Track Oversize entries
-            oversize_strings.oversize = log_data.oversize;
-            // Track missing logs
-            missing_data.push(missing_logs);
-            log_count += results.len();
+    //         // Append our old Oversize entries in case these logs point to other Oversize entries the previous tracev3 files
+    //         log_data.oversize.append(&mut oversize_strings.oversize);
+    //         let (results, missing_logs) = build_log(
+    //             &log_data,
+    //             string_results,
+    //             shared_strings_results,
+    //             timesync_data,
+    //             exclude_missing,
+    //         );
+    //         // Track Oversize entries
+    //         oversize_strings.oversize = log_data.oversize;
+    //         // Track missing logs
+    //         missing_data.push(missing_logs);
+    //         log_count += results.len();
 
-            output(&results).unwrap();
-        }
-    }
+    //         output(&results).unwrap();
+    //     }
+    // }
 
-    archive_path.pop();
-    archive_path.push("Signpost");
+    // archive_path.pop();
+    // archive_path.push("Signpost");
 
-    if archive_path.exists() {
-        let paths = fs::read_dir(&archive_path).unwrap();
+    // if archive_path.exists() {
+    //     let paths = fs::read_dir(&archive_path).unwrap();
 
-        // Loop through all tracev3 files in Signpost directory
-        for log_path in paths {
-            let data = log_path.unwrap();
-            let full_path = data.path().display().to_string();
-            println!("Parsing: {}", full_path);
+    //     // Loop through all tracev3 files in Signpost directory
+    //     for log_path in paths {
+    //         let data = log_path.unwrap();
+    //         let full_path = data.path().display().to_string();
+    //         println!("Parsing: {}", full_path);
 
-            let log_data = if data.path().exists() {
-                parse_log(&full_path).unwrap()
-            } else {
-                println!("File {} no longer on disk", full_path);
-                continue;
-            };
+    //         let log_data = if data.path().exists() {
+    //             parse_log(&full_path).unwrap()
+    //         } else {
+    //             println!("File {} no longer on disk", full_path);
+    //             continue;
+    //         };
 
-            let (results, missing_logs) = build_log(
-                &log_data,
-                string_results,
-                shared_strings_results,
-                timesync_data,
-                exclude_missing,
-            );
+    //         let (results, missing_logs) = build_log(
+    //             &log_data,
+    //             string_results,
+    //             shared_strings_results,
+    //             timesync_data,
+    //             exclude_missing,
+    //         );
 
-            // Signposts have not been seen with Oversize entries
-            missing_data.push(missing_logs);
-            log_count += results.len();
+    //         // Signposts have not been seen with Oversize entries
+    //         missing_data.push(missing_logs);
+    //         log_count += results.len();
 
-            output(&results).unwrap();
-        }
-    }
-    archive_path.pop();
-    archive_path.push("HighVolume");
+    //         output(&results).unwrap();
+    //     }
+    // }
+    // archive_path.pop();
+    // archive_path.push("HighVolume");
 
-    if archive_path.exists() {
-        let paths = fs::read_dir(&archive_path).unwrap();
+    // if archive_path.exists() {
+    //     let paths = fs::read_dir(&archive_path).unwrap();
 
-        // Loop through all tracev3 files in HighVolume directory
-        for log_path in paths {
-            let data = log_path.unwrap();
-            let full_path = data.path().display().to_string();
-            println!("Parsing: {}", full_path);
+    //     // Loop through all tracev3 files in HighVolume directory
+    //     for log_path in paths {
+    //         let data = log_path.unwrap();
+    //         let full_path = data.path().display().to_string();
+    //         println!("Parsing: {}", full_path);
 
-            let log_data = if data.path().exists() {
-                parse_log(&full_path).unwrap()
-            } else {
-                println!("File {} no longer on disk", full_path);
-                continue;
-            };
-            let (results, missing_logs) = build_log(
-                &log_data,
-                string_results,
-                shared_strings_results,
-                timesync_data,
-                exclude_missing,
-            );
+    //         let log_data = if data.path().exists() {
+    //             parse_log(&full_path).unwrap()
+    //         } else {
+    //             println!("File {} no longer on disk", full_path);
+    //             continue;
+    //         };
+    //         let (results, missing_logs) = build_log(
+    //             &log_data,
+    //             string_results,
+    //             shared_strings_results,
+    //             timesync_data,
+    //             exclude_missing,
+    //         );
 
-            // Oversize entries have not been seen in logs in HighVolume
-            missing_data.push(missing_logs);
-            log_count += results.len();
+    //         // Oversize entries have not been seen in logs in HighVolume
+    //         missing_data.push(missing_logs);
+    //         log_count += results.len();
 
-            output(&results).unwrap();
-        }
-    }
-    archive_path.pop();
-    archive_path.push("logdata.LiveData.tracev3");
+    //         output(&results).unwrap();
+    //     }
+    // }
+    // archive_path.pop();
+    // archive_path.push("logdata.LiveData.tracev3");
 
-    // Check if livedata exists. We only have it if 'log collect' was used
-    if archive_path.exists() {
-        println!("Parsing: logdata.LiveData.tracev3");
-        let mut log_data = parse_log(&archive_path.display().to_string()).unwrap();
-        log_data.oversize.append(&mut oversize_strings.oversize);
-        let (results, missing_logs) = build_log(
-            &log_data,
-            string_results,
-            shared_strings_results,
-            timesync_data,
-            exclude_missing,
-        );
-        // Track missing data
-        missing_data.push(missing_logs);
-        log_count += results.len();
+    // // Check if livedata exists. We only have it if 'log collect' was used
+    // if archive_path.exists() {
+    //     println!("Parsing: logdata.LiveData.tracev3");
+    //     let mut log_data = parse_log(&archive_path.display().to_string()).unwrap();
+    //     log_data.oversize.append(&mut oversize_strings.oversize);
+    //     let (results, missing_logs) = build_log(
+    //         &log_data,
+    //         string_results,
+    //         shared_strings_results,
+    //         timesync_data,
+    //         exclude_missing,
+    //     );
+    //     // Track missing data
+    //     missing_data.push(missing_logs);
+    //     log_count += results.len();
 
-        output(&results).unwrap();
-        // Track oversize entries
-        oversize_strings.oversize = log_data.oversize;
-        archive_path.pop();
-    }
+    //     output(&results).unwrap();
+    //     // Track oversize entries
+    //     oversize_strings.oversize = log_data.oversize;
+    //     archive_path.pop();
+    // }
 
-    exclude_missing = false;
+    // exclude_missing = false;
 
-    // Since we have all Oversize entries now. Go through any log entries that we were not able to build before
-    for mut leftover_data in missing_data {
-        // Add all of our previous oversize data to logs for lookups
-        leftover_data
-            .oversize
-            .append(&mut oversize_strings.oversize.to_owned());
+    // // Since we have all Oversize entries now. Go through any log entries that we were not able to build before
+    // for mut leftover_data in missing_data {
+    //     // Add all of our previous oversize data to logs for lookups
+    //     leftover_data
+    //         .oversize
+    //         .append(&mut oversize_strings.oversize.to_owned());
 
-        // Exclude_missing = false
-        // If we fail to find any missing data its probably due to the logs rolling
-        // Ex: tracev3A rolls, tracev3B references Oversize entry in tracev3A will trigger missing data since tracev3A is gone
-        let (results, _) = build_log(
-            &leftover_data,
-            string_results,
-            shared_strings_results,
-            timesync_data,
-            exclude_missing,
-        );
-        log_count += results.len();
+    //     // Exclude_missing = false
+    //     // If we fail to find any missing data its probably due to the logs rolling
+    //     // Ex: tracev3A rolls, tracev3B references Oversize entry in tracev3A will trigger missing data since tracev3A is gone
+    //     let (results, _) = build_log(
+    //         &leftover_data,
+    //         string_results,
+    //         shared_strings_results,
+    //         timesync_data,
+    //         exclude_missing,
+    //     );
+    //     log_count += results.len();
 
-        output(&results).unwrap();
-    } 
-    println!("Parsed {} log entries", log_count);
-    */
+    //     output(&results).unwrap();
+    // } 
+    // println!("Parsed {} log entries", log_count);
 }
 
 // Create csv file and create headers
-/*    
-fn output_header() -> Result<(), Box<dyn Error>> {
+// fn output_header() -> Result<(), Box<dyn Error>> {
 
- println!("Timestamp, PID, Library, Process, Message");
-    let args = Args::parse();
+//  println!("Timestamp, PID, Library, Process, Message");
+//     let args = Args::parse();
 
-    let csv_file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(args.output)?;
-    let mut writer = csv::Writer::from_writer(csv_file);
+//     let csv_file = OpenOptions::new()
+//         .append(true)
+//         .create(true)
+//         .open(args.output)?;
+//     let mut writer = csv::Writer::from_writer(csv_file);
 
-    writer.write_record(&[
-        "Timestamp",
-        "Event Type",
-        "Log Type",
-        "Subsystem",
-        "Thread ID",
-        "PID",
-        "EUID",
-        "Library",
-        "Library UUID",
-        "Activity ID",
-        "Category",
-        "Process",
-        "Process UUID",
-        "Message",
-        //"Raw Message",
-        //"Boot UUID",
-        //"System Timezone Name",
-    ])?;
-    Ok(())
-}
- */
+//     writer.write_record(&[
+//         "Timestamp",
+//         "Event Type",
+//         "Log Type",
+//         "Subsystem",
+//         "Thread ID",
+//         "PID",
+//         "EUID",
+//         "Library",
+//         "Library UUID",
+//         "Activity ID",
+//         "Category",
+//         "Process",
+//         "Process UUID",
+//         "Message",
+//         //"Raw Message",
+//         //"Boot UUID",
+//         //"System Timezone Name",
+//     ])?;
+//     Ok(())
+// }
 
 // Append or create csv file
 fn output(results: &Vec<LogData>) -> Vec<String> {
@@ -549,48 +532,45 @@ fn output(results: &Vec<LogData>) -> Vec<String> {
             break
 
         }
-            /* println!("{}, {}, {}, {}", 
-                date_time.to_rfc3339_opts(SecondsFormat::Millis, true), 
-                data.pid.to_string(),
-                data.subsystem.to_owned(),
-                //data.process.to_owned(),
-                data.message.to_owned()
-            ); */
-        //}
+            //  println!("{}, {}, {}, {}", 
+            //     date_time.to_rfc3339_opts(SecondsFormat::Millis, true), 
+            //     data.pid.to_string(),
+            //     data.subsystem.to_owned(),
+            //     //data.process.to_owned(),
+            //     data.message.to_owned()
+            // );
     }
 
     message_vec
 
-    /*
-    let args = Args::parse();
+    // let args = Args::parse();
 
-    let csv_file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(args.output)?;
-    let mut writer = csv::Writer::from_writer(csv_file);
+    // let csv_file = OpenOptions::new()
+    //     .append(true)
+    //     .create(true)
+    //     .open(args.output)?;
+    // let mut writer = csv::Writer::from_writer(csv_file);
 
-    for data in results {
-        let date_time = Utc.timestamp_nanos(data.time as i64);
-        writer.write_record(&[
-            date_time.to_rfc3339_opts(SecondsFormat::Millis, true),
-            data.event_type.to_owned(),
-            data.log_type.to_owned(),
-            data.subsystem.to_owned(),
-            data.thread_id.to_string(),
-            data.pid.to_string(),
-            data.euid.to_string(),
-            data.library.to_owned(),
-            data.library_uuid.to_owned(),
-            data.activity_id.to_string(),
-            data.category.to_owned(),
-            data.process.to_owned(),
-            data.process_uuid.to_owned(),
-            data.message.to_owned(),
-            //data.raw_message.to_owned(),
-            //data.boot_uuid.to_owned(),
-            //data.timezone_name.to_owned(),
-        ])?;
-    }
-     */
+    // for data in results {
+    //     let date_time = Utc.timestamp_nanos(data.time as i64);
+    //     writer.write_record(&[
+    //         date_time.to_rfc3339_opts(SecondsFormat::Millis, true),
+    //         data.event_type.to_owned(),
+    //         data.log_type.to_owned(),
+    //         data.subsystem.to_owned(),
+    //         data.thread_id.to_string(),
+    //         data.pid.to_string(),
+    //         data.euid.to_string(),
+    //         data.library.to_owned(),
+    //         data.library_uuid.to_owned(),
+    //         data.activity_id.to_string(),
+    //         data.category.to_owned(),
+    //         data.process.to_owned(),
+    //         data.process_uuid.to_owned(),
+    //         data.message.to_owned(),
+    //         //data.raw_message.to_owned(),
+    //         //data.boot_uuid.to_owned(),
+    //         //data.timezone_name.to_owned(),
+    //     ])?;
+    // }
 }
