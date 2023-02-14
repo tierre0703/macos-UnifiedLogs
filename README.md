@@ -24,10 +24,7 @@ Data that is currently extracted includes:
 * Timezone
 
 ## Running
-Three (3) simple example binaries are available in `examples`.  
 * `unifiedlog_parser` - Can parse all logs into a single CSV file. It can also be run on a live system. The resulting CSV file will likely be quite large 
-* `unifiedlog_parser_json` - Can parse all logs into JSON files. It can also be run on a live system. Each log file (tracev3 file) will correspond to a single JSON file. Depending on the logs, hundreds of JSON files may get created
-* `parse_tracev3` - Can parse a single tracev3 file without any timesync or uuidtext files, to a JSON file. However, without the uuidtext or timesync files the resulting JSON file will be heavily incomplete.  
 
 See `RUNNING.md` for overview of running the example binaries
 ## Using as Library

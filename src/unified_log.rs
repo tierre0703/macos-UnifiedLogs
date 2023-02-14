@@ -72,7 +72,7 @@ pub struct LogData {
 
 impl LogData {
     /// Parse the Unified log data read from a tracev3 file
-    pub fn parse_unified_log(data: &[u8], bh_offset: u32) -> nom::IResult<&[u8], UnifiedLogData> {
+    pub fn parse_unified_log(data: &[u8], bh_offset: u32, fl_offset: u32) -> nom::IResult<&[u8], UnifiedLogData> {
         let mut unified_log_data_true = UnifiedLogData {
             header: Vec::new(),
             catalog_data: Vec::new(),
@@ -152,6 +152,7 @@ impl LogData {
                     &mut catalog_data,
                     &mut unified_log_data_true,
                     bh_offset,
+                    fl_offset,
                 );
             } else {
                 error!(
@@ -193,6 +194,7 @@ impl LogData {
         timesync_data: &[TimesyncBoot],
         exclude_mssing: bool,
         batteryhealth_offset: u32,
+        followup_string_offset: u32,
     ) -> (Vec<LogData>, UnifiedLogData) {
         let mut log_data_vec: Vec<LogData> = Vec::new();
         // Need to keep track of any log entries that fail to find Oversize strings (sometimes the strings may be in other log files that have not been parsed yet)
@@ -256,146 +258,151 @@ impl LogData {
                     match firehose.unknown_log_activity_type {
                         0x4 => {
                             
-                            //if log_data.subsystem == "powerd" {
-                            if firehose.format_string_location == batteryhealth_offset {
+                            if firehose.format_string_location == batteryhealth_offset ||
+                                firehose.format_string_location == followup_string_offset {
 
                                 let firehose_log_entry_continous_time =
                                 u64::from(firehose.continous_time_delta)
                                     | ((u64::from(firehose.continous_time_delta_upper)) << 32);
         
-                            let continous_time =
-                                preamble.base_continous_time + firehose_log_entry_continous_time;
-        
-                            // Calculate the timestamp for the log entry
-                            let timestamp = TimesyncBoot::get_timestamp(
-                                timesync_data,
-                                &unified_log_data.header[0].boot_uuid,
-                                continous_time,
-                                preamble.base_continous_time,
-                            );
-        
-                            // Our struct format to hold and show the log data
-                            let mut log_data = LogData {
-                                subsystem: String::new(),
-                                thread_id: firehose.thread_id,
-                                pid: CatalogChunk::get_pid(
-                                    &preamble.first_number_proc_id,
-                                    &preamble.second_number_proc_id,
-                                    &catalog_data.catalog,
-                                ),
-                                library: String::new(),
-                                activity_id: 0,
-                                time: timestamp,
-                                category: String::new(),
-                                log_type: LogData::get_log_type(
-                                    &firehose.unknown_log_type,
-                                    &firehose.unknown_log_activity_type,
-                                ),
-                                process: String::new(),
-                                message: String::new(),
-                                event_type: LogData::get_event_type(&firehose.unknown_log_activity_type),
-                                euid: CatalogChunk::get_euid(
-                                    &preamble.first_number_proc_id,
-                                    &preamble.second_number_proc_id,
-                                    &catalog_data.catalog,
-                                ),
-                                boot_uuid: unified_log_data.header[0].boot_uuid.to_owned(),
-                                timezone_name: unified_log_data.header[0]
-                                    .timezone_path
-                                    .split('/')
-                                    .last()
-                                    .unwrap_or("Unknown Timezone Name")
-                                    .to_string(),
-                                library_uuid: String::new(),
-                                process_uuid: String::new(),
-                                raw_message: String::new(),
-                                message_entries: firehose.message.item_info.to_owned(),
-                            };
-        
-
-                                log_data.activity_id =
-                                u64::from(firehose.firehose_non_activity.unknown_activity_id);
-                            let message_data =
-                                FirehoseNonActivity::get_firehose_nonactivity_strings(
-                                    &firehose.firehose_non_activity,
-                                    strings_data,
-                                    shared_strings,
-                                    u64::from(firehose.format_string_location),
-                                    &preamble.first_number_proc_id,
-                                    &preamble.second_number_proc_id,
-                                    &catalog_data.catalog,
+                                let continous_time =
+                                    preamble.base_continous_time + firehose_log_entry_continous_time;
+            
+                                // Calculate the timestamp for the log entry
+                                let timestamp = TimesyncBoot::get_timestamp(
+                                    timesync_data,
+                                    &unified_log_data.header[0].boot_uuid,
+                                    continous_time,
+                                    preamble.base_continous_time,
                                 );
+            
+                                // Our struct format to hold and show the log data
+                                let mut log_data = LogData {
+                                    subsystem: String::new(),
+                                    thread_id: firehose.thread_id,
+                                    pid: CatalogChunk::get_pid(
+                                        &preamble.first_number_proc_id,
+                                        &preamble.second_number_proc_id,
+                                        &catalog_data.catalog,
+                                    ),
+                                    library: String::new(),
+                                    activity_id: 0,
+                                    time: timestamp,
+                                    category: String::new(),
+                                    log_type: LogData::get_log_type(
+                                        &firehose.unknown_log_type,
+                                        &firehose.unknown_log_activity_type,
+                                    ),
+                                    process: String::new(),
+                                    message: String::new(),
+                                    event_type: LogData::get_event_type(&firehose.unknown_log_activity_type),
+                                    euid: CatalogChunk::get_euid(
+                                        &preamble.first_number_proc_id,
+                                        &preamble.second_number_proc_id,
+                                        &catalog_data.catalog,
+                                    ),
+                                    boot_uuid: unified_log_data.header[0].boot_uuid.to_owned(),
+                                    timezone_name: unified_log_data.header[0]
+                                        .timezone_path
+                                        .split('/')
+                                        .last()
+                                        .unwrap_or("Unknown Timezone Name")
+                                        .to_string(),
+                                    library_uuid: String::new(),
+                                    process_uuid: String::new(),
+                                    raw_message: String::new(),
+                                    message_entries: firehose.message.item_info.to_owned(),
+                                };
+            
 
-                            match message_data {
-                                Ok((_, results)) => {
-                                    log_data.library = results.library;
-                                    log_data.library_uuid = results.library_uuid;
-                                    log_data.process = results.process;
-                                    log_data.process_uuid = results.process_uuid;
-                                    log_data.raw_message = results.format_string.to_owned();
+                                    log_data.activity_id =
+                                    u64::from(firehose.firehose_non_activity.unknown_activity_id);
+                                let message_data =
+                                    FirehoseNonActivity::get_firehose_nonactivity_strings(
+                                        &firehose.firehose_non_activity,
+                                        strings_data,
+                                        shared_strings,
+                                        u64::from(firehose.format_string_location),
+                                        &preamble.first_number_proc_id,
+                                        &preamble.second_number_proc_id,
+                                        &catalog_data.catalog,
+                                    );
 
-                                    // If the non-activity log entry has a data ref value then the message strings are stored in an oversize log entry
-                                    let log_message =
-                                        if firehose.firehose_non_activity.data_ref_value != 0 {
-                                            let oversize_strings = Oversize::get_oversize_strings(
-                                                u32::from(
-                                                    firehose.firehose_non_activity.data_ref_value,
-                                                ),
-                                                preamble.first_number_proc_id,
-                                                preamble.second_number_proc_id,
-                                                &unified_log_data.oversize,
-                                            );
-                                            // Format and map the log strings with the message format string found UUIDText or shared string file
-                                            format_firehose_log_message(
-                                                results.format_string,
-                                                &oversize_strings,
-                                                &message_re,
-                                            )
-                                        } else {
-                                            // Format and map the log strings with the message format string found UUIDText or shared string file
-                                            format_firehose_log_message(
-                                                results.format_string,
-                                                &firehose.message.item_info,
-                                                &message_re,
-                                            )
-                                    };
-                                    // If we are tracking missing data (due to it being stored in another log file). Add missing data to vec to track and parse again once we got all data
-                                    if exclude_mssing
-                                        && log_message.contains("<Missing message data>")
-                                    {
-                                        LogData::add_missing(
-                                            catalog_data,
-                                            preamble_index,
-                                            firehose_index,
-                                            &unified_log_data.header,
-                                            &mut missing_unified_log_data_vec,
-                                            preamble,
-                                        );
-                                        continue;
-                                    }
+                                match message_data {
+                                    Ok((_, results)) => {
+                                        log_data.library = results.library;
+                                        log_data.library_uuid = results.library_uuid;
+                                        log_data.process = results.process;
+                                        log_data.process_uuid = results.process_uuid;
+                                        log_data.raw_message = results.format_string.to_owned();
 
-                                    if !firehose.message.backtrace_strings.is_empty() {
-                                        log_data.message = format!(
-                                            "Backtrace:\n{:}\n{:}",
-                                            firehose.message.backtrace_strings.join("\n"),
-                                            log_message
-                                        );
-                                    } else {
-                                        // if log_message.contains("Updated Battery Health") {
-                                        //    println!("{} / {} / {} / {}", log_message, log_data.raw_message, u64::from(firehose.format_string_location), log_data.process_uuid);
+
+                                        // If the non-activity log entry has a data ref value then the message strings are stored in an oversize log entry
+                                        let log_message =
+                                            if firehose.firehose_non_activity.data_ref_value != 0 {
+                                                let oversize_strings = Oversize::get_oversize_strings(
+                                                    u32::from(
+                                                        firehose.firehose_non_activity.data_ref_value,
+                                                    ),
+                                                    preamble.first_number_proc_id,
+                                                    preamble.second_number_proc_id,
+                                                    &unified_log_data.oversize,
+                                                );
+                                                // Format and map the log strings with the message format string found UUIDText or shared string file
+                                                format_firehose_log_message(
+                                                    results.format_string,
+                                                    &oversize_strings,
+                                                    &message_re,
+                                                )
+                                            } else {
+                                                // Format and map the log strings with the message format string found UUIDText or shared string file
+                                                format_firehose_log_message(
+                                                    results.format_string,
+                                                    &firehose.message.item_info,
+                                                    &message_re,
+                                                )
+                                        };
+
+                                        //if log_message.contains("Item approved") {
+                                            //println!("{} {} {}",firehose.format_string_location, log_data.raw_message,  log_message);
                                         //}
-                                        log_data.message = log_message;
+                                        // If we are tracking missing data (due to it being stored in another log file). Add missing data to vec to track and parse again once we got all data
+                                        if exclude_mssing
+                                            && log_message.contains("<Missing message data>")
+                                        {
+                                            LogData::add_missing(
+                                                catalog_data,
+                                                preamble_index,
+                                                firehose_index,
+                                                &unified_log_data.header,
+                                                &mut missing_unified_log_data_vec,
+                                                preamble,
+                                            );
+                                            continue;
+                                        }
+
+                                        if !firehose.message.backtrace_strings.is_empty() {
+                                            log_data.message = format!(
+                                                "Backtrace:\n{:}\n{:}",
+                                                firehose.message.backtrace_strings.join("\n"),
+                                                log_message
+                                            );
+                                        } else {
+                                            // if log_message.contains("Updated Battery Health") {
+                                            //    println!("{} / {} / {} / {}", log_message, log_data.raw_message, u64::from(firehose.format_string_location), log_data.process_uuid);
+                                            //}
+                                            log_data.message = log_message;
+                                        }
+                                    }
+                                    Err(err) => {
+                                        warn!("[macos-unifiedlogs] Failed to get message string data for firehose non-activity log entry: {:?}", err);
                                     }
                                 }
-                                Err(err) => {
-                                    warn!("[macos-unifiedlogs] Failed to get message string data for firehose non-activity log entry: {:?}", err);
-                                }
+
+
+                                log_data_vec.push(log_data);
                             }
-
-
-                            log_data_vec.push(log_data);
-                        }
-
+                        
                         }
                        
                         /* 0x7 => {
@@ -789,6 +796,7 @@ impl LogData {
         catalog_data: &mut UnifiedLogCatalogData,
         unified_log_data: &mut UnifiedLogData,
         bh_offset: u32,
+        fl_offset: u32,
     ) {
         // Parse and decompress the chunkset entries
         let chunkset_data_results = ChunksetChunk::parse_chunkset(data);
@@ -799,6 +807,7 @@ impl LogData {
                     &chunkset_data.decompressed_data,
                     catalog_data,
                     bh_offset,
+                    fl_offset,
                 );
                 unified_log_data.oversize.append(&mut catalog_data.oversize);
             }
@@ -894,7 +903,7 @@ mod tests {
 
         let buffer = fs::read(test_path).unwrap();
 
-        let (_, results) = LogData::parse_unified_log(&buffer, 0).unwrap();
+        let (_, results) = LogData::parse_unified_log(&buffer, 0, 0).unwrap();
         assert_eq!(results.catalog_data.len(), 56);
         assert_eq!(results.header.len(), 1);
         assert_eq!(results.oversize.len(), 12);
@@ -906,7 +915,7 @@ mod tests {
         test_path.push("tests/test_data/Bad Data/TraceV3/Bad_header_0000000000000005.tracev3");
 
         let buffer = fs::read(test_path).unwrap();
-        let (_, results) = LogData::parse_unified_log(&buffer, 0).unwrap();
+        let (_, results) = LogData::parse_unified_log(&buffer, 0, 0).unwrap();
         assert_eq!(results.catalog_data.len(), 36);
         assert_eq!(results.header.len(), 0);
         assert_eq!(results.oversize.len(), 28);
@@ -919,7 +928,7 @@ mod tests {
         test_path.push("tests/test_data/Bad Data/TraceV3/Bad_content_0000000000000005.tracev3");
 
         let buffer = fs::read(test_path).unwrap();
-        let (_, _) = LogData::parse_unified_log(&buffer, 0).unwrap();
+        let (_, _) = LogData::parse_unified_log(&buffer, 0, 0).unwrap();
     }
 
     #[test]
@@ -929,7 +938,7 @@ mod tests {
         test_path.push("tests/test_data/Bad Data/TraceV3/00.tracev3");
 
         let buffer = fs::read(test_path).unwrap();
-        let (_, _) = LogData::parse_unified_log(&buffer, 0).unwrap();
+        let (_, _) = LogData::parse_unified_log(&buffer, 0, 0).unwrap();
     }
 
     #[test]
@@ -949,7 +958,7 @@ mod tests {
 
         test_path.push("Persist/0000000000000002.tracev3");
 
-        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0, 0).unwrap();
 
         let exclude_missing = false;
         let (results, _) = LogData::build_log(
@@ -958,6 +967,7 @@ mod tests {
             &shared_strings_results,
             &timesync_data,
             exclude_missing,
+            0,
             0,
         );
         assert_eq!(results.len(), 207366);
@@ -1147,7 +1157,7 @@ mod tests {
             oversize: Vec::new(),
         };
 
-        LogData::get_chunkset_data(&buffer, &mut unified_log, &mut log_data);
+        LogData::get_chunkset_data(&buffer, &mut unified_log, &mut log_data, 0, 0);
         assert_eq!(unified_log.catalog.chunk_tag, 0);
         assert_eq!(unified_log.firehose.len(), 21);
         assert_eq!(unified_log.statedump.len(), 0);
@@ -1283,7 +1293,7 @@ mod tests {
             "tests/test_data/system_logs_big_sur.logarchive/Persist/0000000000000002.tracev3",
         );
 
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0, 0).unwrap();
 
         LogData::add_missing(
             &log_data.catalog_data[0],

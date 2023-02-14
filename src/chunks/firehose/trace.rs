@@ -133,7 +133,7 @@ mod tests {
         let string_results = collect_strings(&test_path.display().to_string()).unwrap();
 
         test_path.push("logdata.LiveData.tracev3");
-        let log_data = parse_log(&test_path.display().to_string()).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0, 0).unwrap();
 
         let activity_type = 0x3;
 

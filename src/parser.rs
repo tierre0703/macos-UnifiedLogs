@@ -35,7 +35,7 @@ pub fn collect_timesync_system() -> Result<Vec<TimesyncBoot>, ParserError> {
 }
 
 /// Parse a tracev3 file and return the deconstructed log data
-pub fn parse_log(full_path: &str, bh_offset: u32) -> Result<UnifiedLogData, ParserError> {
+pub fn parse_log(full_path: &str, bh_offset: u32, fl_offset: u32) -> Result<UnifiedLogData, ParserError> {
     let file = fs::File::open(full_path).unwrap();
     let mmap = unsafe { Mmap::map(&file).unwrap() };
 
@@ -46,7 +46,7 @@ pub fn parse_log(full_path: &str, bh_offset: u32) -> Result<UnifiedLogData, Pars
 
     info!("Read {} bytes for file {}", buffer.len(), full_path);
 
-    let log_data_results = LogData::parse_unified_log(&buffer, bh_offset);
+    let log_data_results = LogData::parse_unified_log(&buffer, bh_offset, fl_offset);
     match log_data_results {
         Ok((_, log_data)) => Ok(log_data),
         Err(err) => {
@@ -69,6 +69,7 @@ pub fn build_log(
     timesync_data: &[TimesyncBoot],
     exclude_missing: bool,
     batteryhealth_offset: u32,
+    followup_string_offset: u32,
 ) -> (Vec<LogData>, UnifiedLogData) {
     LogData::build_log(
         unified_data,
@@ -77,6 +78,7 @@ pub fn build_log(
         timesync_data,
         exclude_missing,
         batteryhealth_offset,
+        followup_string_offset,
     )
 }
 
@@ -442,7 +444,7 @@ mod tests {
         test_path.push("tests/test_data/system_logs_big_sur.logarchive");
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0, 0).unwrap();
 
         assert_eq!(log_data.catalog_data[0].firehose.len(), 99);
         assert_eq!(log_data.catalog_data[0].simpledump.len(), 0);
@@ -473,7 +475,7 @@ mod tests {
         test_path.pop();
 
         test_path.push("Persist/0000000000000002.tracev3");
-        let log_data = parse_log(&test_path.display().to_string(), 0).unwrap();
+        let log_data = parse_log(&test_path.display().to_string(), 0, 0).unwrap();
 
         let exclude_missing = false;
         let (results, _) = build_log(
@@ -482,7 +484,8 @@ mod tests {
             &shared_strings_results,
             &timesync_data,
             exclude_missing,
-            0
+            0,
+            0,
         );
         assert_eq!(results.len(), 207366);
         assert_eq!(results[10].process, "/usr/libexec/lightsoutmanagementd");

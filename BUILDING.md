@@ -7,7 +7,7 @@
 3. Navigate to cloned repo.
 4. Execute `cargo build` to build debug library. `cargo build --release` to build release version
    * Navigate to examples directory and run `cargo build --release` to build the example files
-   * `unifiedlog_parser` and `unifiedlog_parser_json` can parse a live macOS system if no arguements are presented. Both can also parse a `logarchive` if passed as an arguement
+   * `unifiedlog_parser` can also parse a `logarchive` if passed as an arguement
 
 # Running test suite
 1. Follow steps above

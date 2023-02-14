@@ -17,7 +17,7 @@ use macos_unifiedlogs::{
 };
 
 fn big_sur_parse_log(path: &str) {
-    let _ = parse_log(&path).unwrap();
+    let _ = parse_log(&path, 0, 0).unwrap();
 }
 
 fn bench_build_log(
@@ -33,6 +33,8 @@ fn bench_build_log(
         &shared_strings_results,
         &timesync_data,
         exclude_missing,
+        0,
+        0,
     );
 }
 
@@ -62,7 +64,7 @@ fn big_sur_build_log_benchbress(c: &mut Criterion) {
     test_path.push("Persist/0000000000000004.tracev3");
     let exclude_missing = false;
 
-    let log_data = parse_log(&test_path.display().to_string()).unwrap();
+    let log_data = parse_log(&test_path.display().to_string(), 0, 0).unwrap();
 
     c.bench_function("Benching Building One Big Sur Log", |b| {
         b.iter(|| {

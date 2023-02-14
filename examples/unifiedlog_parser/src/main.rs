@@ -136,17 +136,51 @@ fn parse_trace_file(
         oversize: Vec::new(),
     };
 
-    let mut batterhealth_string_offset: u32 = 0;
-    
-    let mut str_real_offset: u32 = 0;
-    let mut ch_offset: u32 = 0;
+    let mut batteryhealth_string_offset: u32 = 0;
+    let mut followup_string_offset: u32 = 0;
 
+    // find string in shared_string
+    for shared_string in shared_strings_results {
+        let mut str_real_offset: u32 = 0;
+        let mut ch_offset: u32 = 0;
+        for range in &shared_string.ranges {
+            let strings = &range.strings;
+            let string_data: &[u8] = strings;
+            let mut str_buffer = String::new();
+            let mut ch: char = char::from(0);
+
+            ch_offset = 0;
+
+            while ch_offset < range.range_size {
+                ch = string_data[ch_offset as usize] as char;
+                if ch == char::from(0) {
+                    if str_buffer.contains("Item approved:") {
+                        let str_len = str_buffer.len() as u32;
+                        followup_string_offset = range.range_offset as u32 + ch_offset - str_len;
+                        break;
+                    }
+                    str_buffer = String::new();
+                } else {
+                    str_buffer.push(ch);
+                }
+                ch_offset += 1;
+            }
+            str_real_offset += u32::from(range.range_size);
+        }
+    }
+
+    // find string in string resources
+    let message_bh_re = Regex::new(
+        r"Battery Health:.*MaxCapacity:"
+    ).unwrap();
     for string_entry in string_results {
         let strings = &string_entry.footer_data;
         let footer_data: &[u8] = strings;
         let mut str_buffer = String::new();
         let mut ch: char = char::from(0);
-
+        let mut str_real_offset: u32 = 0;
+        let mut ch_offset: u32 = 0;
+    
         for entry_index in 0..string_entry.entry_descriptors.len() {
             let entry = string_entry.entry_descriptors.get(entry_index).unwrap();
             ch_offset = str_real_offset;
@@ -156,10 +190,11 @@ fn parse_trace_file(
                 if ch == char::from(0) {
                     // end of string
                     // check string
-                    if str_buffer.contains("Updated Battery Health") &&
-                    str_buffer.contains("MaxCapacity:"){
+                    if message_bh_re.is_match(&str_buffer) {
+                    //if str_buffer.contains("Updated Battery Health") &&
+                    //str_buffer.contains("MaxCapacity:"){
                         let str_len = str_buffer.len() as u32;
-                        batterhealth_string_offset = entry.range_start_offset + ch_offset - str_real_offset - str_len;
+                        batteryhealth_string_offset = entry.range_start_offset + ch_offset - str_real_offset - str_len;
                         break;
                     }
     
@@ -184,6 +219,7 @@ fn parse_trace_file(
 
     let mut archive_path = PathBuf::from(path);
     let mut log_data_vec: Vec<String> = Vec::new();
+    let mut log_data_fl_vec: Vec<String> = Vec::new();
 
 
     archive_path.push("logdata.LiveData.tracev3");
@@ -191,7 +227,7 @@ fn parse_trace_file(
     // Check if livedata exists. We only have it if 'log collect' was used
     if archive_path.exists() {
         // println!("Parsing: logdata.LiveData.tracev3");
-        let mut log_data = parse_log(&archive_path.display().to_string(), batterhealth_string_offset).unwrap();
+        let mut log_data = parse_log(&archive_path.display().to_string(), batteryhealth_string_offset, followup_string_offset).unwrap();
         log_data.oversize.append(&mut oversize_strings.oversize);
         let (results, missing_logs) = build_log(
             &log_data,
@@ -199,21 +235,28 @@ fn parse_trace_file(
             shared_strings_results,
             timesync_data,
             exclude_missing,
-            batterhealth_string_offset,
+            batteryhealth_string_offset,
+            followup_string_offset
         );
         // Track missing data
         missing_data.push(missing_logs);
 
-        let mut messages = output(&results);
-        if messages.len() > 0 {
+        let (mut messages, mut fl_messages) = output(&results);
+        if messages.len() > 0  && log_data_vec.len() == 0 {
             log_data_vec.append(&mut messages);
         }
+
+        if fl_messages.len() > 0 && log_data_fl_vec.len() == 0 {
+            log_data_fl_vec.append(&mut fl_messages);
+        }
+
         // Track oversize entries
         oversize_strings.oversize = log_data.oversize;
     }
 
 
-    if log_data_vec.len() == 0 {
+    if log_data_vec.len() == 0 ||
+        log_data_fl_vec.len() == 0 {
         archive_path.pop();
         archive_path.push("Special");
 
@@ -232,7 +275,7 @@ fn parse_trace_file(
 
 
                 let log_data = if log_path.path().exists() {
-                    match parse_log(&full_path, batterhealth_string_offset) {
+                    match parse_log(&full_path, batteryhealth_string_offset, followup_string_offset) {
                         Ok(results) => results,
                         Err(err) => continue
                     }
@@ -247,21 +290,33 @@ fn parse_trace_file(
                     shared_strings_results,
                     timesync_data,
                     exclude_missing,
-                    batterhealth_string_offset,
+                    batteryhealth_string_offset,
+                    followup_string_offset,
                 );
                 // Track Oversize entries
                 // Track missing logs
                 missing_data.push(missing_logs);
-                let mut messages = output(&results);
-                if messages.len() > 0 {
+
+                let (mut messages, mut fl_messages) = output(&results);
+                if messages.len() > 0  && log_data_vec.len() == 0 {
                     log_data_vec.append(&mut messages);
                 }
+
+                if fl_messages.len() > 0 && log_data_fl_vec.len() == 0 {
+                    log_data_fl_vec.append(&mut fl_messages);
+                }
+
+                if log_data_vec.len() > 0 && log_data_fl_vec.len() > 0 {
+                    break;
+                }
+
             }
         }
     }
 
 
-    if log_data_vec.len() == 0 {
+    if log_data_vec.len() == 0 ||
+        log_data_fl_vec.len() == 0 {
 
         archive_path.pop();
         archive_path.push("Persist");
@@ -281,7 +336,7 @@ fn parse_trace_file(
 
 
                 let log_data = if log_path.path().exists() {
-                    match parse_log(&full_path, batterhealth_string_offset) {
+                    match parse_log(&full_path, batteryhealth_string_offset, followup_string_offset) {
                         Ok(results) => results,
                         Err(err) => continue
                     }
@@ -296,7 +351,8 @@ fn parse_trace_file(
                     shared_strings_results,
                     timesync_data,
                     exclude_missing,
-                    batterhealth_string_offset,
+                    batteryhealth_string_offset,
+                    followup_string_offset,
                 );
 
                 // Track Oversize entries
@@ -307,23 +363,29 @@ fn parse_trace_file(
                 // Track missing logs
                 // missing_data.push(missing_logs);
                 // log_count += results.len();
-                let mut messages = output(&results);
-                if messages.len() > 0 {
+                let (mut messages, mut fl_messages) = output(&results);
+                if messages.len() > 0  && log_data_vec.len() == 0 {
                     log_data_vec.append(&mut messages);
-                    //let duration = start.elapsed();
-                    //println!("Time elapsed in expensive_function() is: {:?}", duration);
-                    break
+                }
+
+                if fl_messages.len() > 0 && log_data_fl_vec.len() == 0 {
+                    log_data_fl_vec.append(&mut fl_messages);
+                }
+
+                if log_data_vec.len() > 0 && log_data_fl_vec.len() > 0 {
+                    break;
                 }
 
             }
         }
     }
 
-
-    
-
     if log_data_vec.len() > 0 {
         println!("{}", log_data_vec[log_data_vec.len() - 1].to_string())
+    }
+
+    if log_data_fl_vec.len() > 0 {
+        println!("{}", log_data_fl_vec[log_data_fl_vec.len() - 1].to_string())
     }
 
     // archive_path.pop();
@@ -517,31 +579,33 @@ fn parse_trace_file(
 // }
 
 // Append or create csv file
-fn output(results: &Vec<LogData>) -> Vec<String> {
+
+fn output(results: &Vec<LogData>) -> (Vec<String>, Vec<String>) {
     let mut message_vec: Vec<String> = Vec::new();
+    let mut message_fl_vec: Vec<String> = Vec::new();
     let message_re = Regex::new(
         r"Battery Health:.*MaxCapacity:([0-9]+)"
     ).unwrap();
+    let message_fl_re = Regex::new(
+        r"Item approved:.*FLFollowUpItem:.*com\.apple\.mobilerepair\.(.+?)Repair\n"
+    ).unwrap();
     for data in results {
         //let date_time = Utc.timestamp_nanos(data.time as i64);
-        //if message_re.is_match(&data.message) {
-        if data.message != "" {
+        if message_re.is_match(&data.message) {
             let percent = message_re.captures(&data.message).unwrap();
-
-            message_vec.push(percent.get(1).map_or("", |m| m.as_str()).to_string());
-            break
-
+            let percent_str = format!("Max Percent: {}", percent.get(1).map_or("", |m| m.as_str()));
+            message_vec.push(percent_str.to_string());
+        }else if message_fl_re.is_match(&data.message) {
+            let fl_token = message_fl_re.captures(&data.message).unwrap();
+            let fl_token_str = fl_token.get(1).map_or("", |m| m.as_str()).to_string();
+            let message = format!("OEM {} Notice", fl_token_str);
+            if message != "" {
+                message_fl_vec.push(message.to_string());
+            }
         }
-            //  println!("{}, {}, {}, {}", 
-            //     date_time.to_rfc3339_opts(SecondsFormat::Millis, true), 
-            //     data.pid.to_string(),
-            //     data.subsystem.to_owned(),
-            //     //data.process.to_owned(),
-            //     data.message.to_owned()
-            // );
     }
 
-    message_vec
+    (message_vec, message_fl_vec)
 
     // let args = Args::parse();
 
